@@ -1,4 +1,3 @@
-
 import Image from "next/image";
 import React from "react";
 import "animate.css";
@@ -8,6 +7,7 @@ import { getAlbums } from './server/albums'
 export default async function Home() {
 const albums = await getAlbums();
 console.log(albums);
+
   // const displayAlbum = (albums: Array<string>) => {
   //     albums.map((album, i: number) => {
   //         <div className="relative" key={i + Math.random()}>
