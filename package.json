@@ -21,7 +21,7 @@
     "eslint-config-next": "13.4.10",
     "googleapis": "^123.0.0",
     "googlephotos": "^0.3.5",
-    "next": "13.4.10",
+    "next": "^13.4.13",
     "postcss": "8.4.26",
     "react": "18.2.0",
     "react-dom": "18.2.0",
