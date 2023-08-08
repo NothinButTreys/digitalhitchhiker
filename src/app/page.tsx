@@ -5,11 +5,13 @@ import ImageBlock from "./components/imageBlock";
 
 
 const getAllPhotos = async () => {
-  const baseAPI = process.env.type === "production" 
-      ? "https://www.digitalhitchhiker.photography"
-        ? "staging" 
-          : "https://digitalhitchhiker.vercel.app/" 
-      : "http://localhost:3000";
+  let baseAPI;
+  if (process.env.NODE_ENV === "development") {
+    baseAPI = "http://localhost:3000";
+  } else {
+    baseAPI = "https://digitalhitchhiker.vercel.app";
+  }
+
   const req = await fetch(`${baseAPI}/api/photos`, {
     next: {
       tags: ["all-photos"],
