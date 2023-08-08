@@ -7,7 +7,7 @@ import ImageBlock from "./components/imageBlock";
 const getAllPhotos = async () => {
   let baseAPI;
   if (process.env.NODE_ENV === "development") {
-    baseAPI = "http://localhost:3000";
+    baseAPI = process.env.CLOUDINARY_CLOUD_BASE_API as string;
   } else {
     baseAPI = "https://digitalhitchhiker.vercel.app";
   }
