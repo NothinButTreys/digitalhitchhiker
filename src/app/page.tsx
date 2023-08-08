@@ -1,38 +1,43 @@
-import Image from "next/image";
 import React from "react";
 import "animate.css";
 import Loading from "./loading";
-import { getAlbums } from './server/albums'
+import getPhotos from "./fetchPhotos";
+import {Photo} from "./types";
+import ImageGallery from "./ImageGallery";
+
 
 export default async function Home() {
-const albums = await getAlbums();
-console.log(albums);
+  const results: Photo[] = await getPhotos();
 
-  // const displayAlbum = (albums: Array<string>) => {
-  //     albums.map((album, i: number) => {
-  //         <div className="relative" key={i + Math.random()}>
-  //             <Image
-  //                 src={album}
-  //                 alt={album}
-  //                 layout="fill"
-  //                 objectFit="cover"
-  //                 className="rounded-lg"
-  //             />
-  //         </div>;
-  //     });
-  //     return albums;
-  // };
-
-  if (albums.length === 0) {
+  if (!results || results.length === 0) {
     return <Loading />;
   }
 
+  const sortPhotosByFolder = (photos: Photo[]): { [key: string]: Photo[] } => {
+    let sortedPhotos: { [key: string]: Photo[] } = {};
+    for (let photo of photos) {
+      if (!sortedPhotos[photo.folder]) {
+        sortedPhotos[photo.folder] = [];
+      }
+      sortedPhotos[photo.folder].push(photo);
+    }
+
+    return sortedPhotos;
+  };
+
+  
+
   return (
-    <div
-      className="grid grid-cols-3 gap-2 p-4 top-20 relative"
-      id="imageGallery"
-    >
-      {/* {displayAlbum(albums)} */}
+    <div className="p-4 top-20 relative animate__animated animate__fadeIn" id="imageGallery">
+      {Object.entries(sortPhotosByFolder(results)).map(
+        ([folderName, photos]) => (
+          <ImageGallery
+            key={folderName}
+            folderName={folderName}
+            photos={photos}
+          />
+        )
+      )}
     </div>
   );
 }

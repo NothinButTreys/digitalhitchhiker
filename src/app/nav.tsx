@@ -5,7 +5,7 @@ import Link from "next/link";
 
 export default function Nav() {
     return (
-        <nav className="bg-[#1d1e22]/[0.99] shadow-md shadow-slate-950 flex justify-between items-center top-0 z-10 py-4 px-8 mr-4 w-full fixed h-fit bg-gradient-to-t from-transparent to-[#1d1e22]/[0.4]">
+        <nav className="bg-[#1d1e22]/[0.89] shadow-md shadow-slate-950 flex justify-between items-center top-0 z-10 py-4 px-8 mr-4 w-full fixed h-fit bg-gradient-to-t from-transparent to-[#1d1e22]/[0.4]">
             <div className="flex items-center">
                 <BsCamera2 className="w-12 h-12 mr-2 text-green-900" />
                 <h1 className="text-2xl font-semibold text-green-900">
