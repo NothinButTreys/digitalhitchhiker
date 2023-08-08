@@ -3,8 +3,14 @@ import "animate.css";
 import { Photo } from "./types/photos";
 import ImageBlock from "./components/imageBlock";
 
+
 const getAllPhotos = async () => {
-  const req = await fetch(`${process.env.CLOUDINARY_CLOUD_BASE_API}/api/photos`, {
+  const baseAPI = process.env.type === "production" 
+      ? "https://www.digitalhitchhiker.photography/" 
+        ? "staging" 
+          : "https://digitalhitchhiker-3zs1dmbsm-kneokai.vercel.app/" 
+      : "http://localhost:3000";
+  const req = await fetch(`${baseAPI}/api/photos`, {
     next: {
       tags: ["all-photos"],
     },
