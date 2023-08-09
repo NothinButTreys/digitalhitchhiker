@@ -3,9 +3,8 @@ import "animate.css";
 import { Photo } from "./types/photos";
 import ImageBlock from "./components/imageBlock";
 
-
 const getAllPhotos = async () => {
-  const req = await fetch(`${process.env.APP_BASE_URL}/api/photos`, {
+  const req = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/photos`, {
     next: {
       tags: ["all-photos"],
     },
