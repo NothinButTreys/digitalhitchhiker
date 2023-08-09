@@ -13,7 +13,7 @@ const getAllPhotos = async () => {
     }
   });
   const result = await req.json();
-  return result.resources as Photo[];
+  return result?.resources as Photo[];
 };
 
 export default async function Home() {
