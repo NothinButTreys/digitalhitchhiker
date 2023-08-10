@@ -1,46 +1,37 @@
-import React from "react";
-import "animate.css";
-import { Photo } from "./types/photos";
-import ImageBlock from "./components/imageBlock";
+"use client";
 
-const getAllPhotos = async () => {
-  const req = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/photos`, {
-    next: {
-      tags: ["all-photos"],
-    },
-    headers: {
-      "x-api-key": process.env.CLOUDINARY_CLOUD_SECRET as string
-    }
-  });
-  const result = await req.json();
-  return result?.resources as Photo[]; 
+import { CldImage } from "next-cloudinary";
+import { CldUploadButton } from "next-cloudinary";
+import { useState } from "react";
+
+export type UploadResult = {
+  info: {
+    public_id: string;
+  };
+  event: "success";
 };
 
-export default async function Home() {
-  const photos = await getAllPhotos();
-
-  const sortPhotosByFolder = () => {
-    return photos.reduce((sortedPhotos: { [key: string]: Photo[] }, photo) => {
-      if (!sortedPhotos[photo.folder]) {
-        sortedPhotos[photo.folder] = [];
-      }
-      sortedPhotos[photo.folder].push(photo);
-      return sortedPhotos;
-    }, {});
-  };
+export default function Home() {
+  const [imageId, setImageId] = useState("");
 
   return (
-      <div
-        className="relative p-4 top-20 animate__animated animate__fadeIn"
-        id="imageGallery"
-      >
-        {Object.entries(sortPhotosByFolder()).map(([folderName, photos]) => (
-          <ImageBlock
-            key={folderName}
-            folderName={folderName}
-            photos={photos}
-          />
-        ))}
-      </div>
+    <main className="flex min-h-screen flex-col items-center justify-between p-24 top-20 relative">
+      <CldUploadButton
+        onUpload={(result: UploadResult) => {
+          setImageId(result.info.public_id);
+        }}
+        uploadPreset={process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET}
+      />
+
+      {imageId && (
+        <CldImage
+          width="500"
+          height="300"
+          src={imageId}
+          sizes="100vw"
+          alt="Description of my image"
+        />
+      )}
+    </main>
   );
 }
