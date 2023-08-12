@@ -2,7 +2,6 @@ import "./globals.css";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import Nav from "./nav";
-import SideMenu from "../components/sidemenu";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -21,7 +20,6 @@ export default function RootLayout({
       <body className={inter.className}>
         <Nav />
         <div className="flex relative top-20">
-          <SideMenu />
           <div className="w-full px-4 pt-8">{children}</div>
         </div>
       </body>
