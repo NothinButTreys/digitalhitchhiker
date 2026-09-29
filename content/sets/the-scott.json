@@ -1,0 +1,20 @@
+{
+  "slug": "the-scott",
+  "title": "The Scott",
+  "place": "Arizona",
+  "description": "Gardens, pools and interiors at The Scott resort in Arizona, photographed in 2019.",
+  "photos": [
+    { "slug": "lagoon-ruin", "source": "The Scott/ACM - The Scott (19 of 21).jpg", "title": "Lagoon ruin", "alt": "A whitewashed stone ruin with three window openings, its terracotta spouts pouring into a clear lagoon", "description": "Water runs from the wall into the pool, with dark boulders and a small cascade to one side." },
+    { "slug": "hanging-chair", "source": "The Scott/ACM - The Scott (9 of 21).jpg", "title": "Hanging chair", "alt": "A white rattan hanging chair on two ropes, holding one turquoise and white striped cushion", "description": "The chair hangs over gravel beside a reed screen, a white building behind." },
+    { "slug": "lagoon-pool", "source": "The Scott/ACM - The Scott (6 of 21).jpg", "title": "Lagoon pool", "alt": "A clear turquoise lagoon pool edged with boulders beside a curved white wall enclosing rattan chairs", "description": "Palms and a tile-roofed wing stand behind the pool under a bright sky." },
+    { "slug": "buffet-table", "source": "The Scott/ACM - The Scott (11 of 21).jpg", "title": "Buffet table", "alt": "A long wooden buffet table set with bowls, bread baskets and small black label cards", "description": "The spread recedes toward an orchid centrepiece and potted palms at the far end." },
+    { "slug": "cabana", "source": "The Scott/ACM - The Scott (8 of 21).jpg", "title": "Cabana", "alt": "A timber cabana with sheer white curtains, woven pendant lamps and a long table with rattan chairs", "description": "A shaded dining space open to the garden and pool beyond." },
+    { "slug": "cornhole-board", "source": "The Scott/ACM - The Scott (13 of 21).jpg", "title": "Cornhole board", "alt": "A dark wooden cornhole board with a turquoise border and palm-tree emblem on bright green turf", "description": "A lawn game waits in the sun, woven chairs soft in the background." },
+    { "slug": "ruin-seating", "source": "The Scott/ACM - The Scott (15 of 21).jpg", "title": "Seats by the ruin", "alt": "Woven lounge chairs in a circle before a whitewashed stone wall with three window openings", "description": "The garden ruin seen from its lawn side, white flowers spilling from large pots." },
+    { "slug": "salad-bar", "source": "The Scott/ACM - The Scott (10 of 21).jpg", "title": "Salad bar", "alt": "Pearly bowls of salad greens with tongs and stacked plates, glass doors open to a garden", "description": "Daylight from the garden falls across the buffet and an orchid in a birdcage." },
+    { "slug": "poolside-lounge", "source": "The Scott/ACM - The Scott (4 of 21).jpg", "title": "Poolside lounge", "alt": "White-framed sofas and armchairs around a low table on a flagstone patio beside the pool", "description": "A sunny seating area set among palms and plantings at the water's edge." },
+    { "slug": "footbridge", "source": "The Scott/ACM - The Scott (20 of 21).jpg", "title": "Footbridge", "alt": "A garden path crossing a small wooden footbridge with dark iron railings and white flowers", "description": "The path leads on through dense greenery toward stone pillars and a gate." },
+    { "slug": "garden-lawn", "source": "The Scott/ACM - The Scott (18 of 21).jpg", "title": "Garden lawn", "alt": "Wicker and woven chairs scattered on a lawn before oleanders and a white wing with a tiled roof", "description": "Palm trunks and flowering shrubs frame the lawn in front of a two-storey wing." },
+    { "slug": "palms", "source": "The Scott/ACM - The Scott (1 of 21).jpg", "title": "Palms", "alt": "Three tall palms in a planted bed of agave and shrubs before a tile-roofed entrance drive", "description": "The palms rise into a clear blue sky above a covered drive." }
+  ]
+}

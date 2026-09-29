@@ -1,37 +1,43 @@
 {
   "name": "digital-hitchhiker",
-  "version": "0.1.0",
   "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build && vite build --ssr src/entry-server.tsx --outDir dist-server && tsx scripts/prerender.ts",
+    "preview": "serve dist -l 4173",
+    "photos": "tsx scripts/build-photos.ts",
+    "test": "vitest run",
+    "test:build": "vitest run --config vitest.build.config.ts",
+    "test:e2e": "playwright test",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@cloudinary/react": "^1.11.2",
-    "@cloudinary/url-gen": "^1.11.1",
-    "@types/node": "20.4.2",
-    "@types/react": "18.2.15",
-    "@types/react-dom": "18.2.7",
-    "animate.css": "^4.1.1",
-    "autoprefixer": "10.4.14",
-    "dotenv": "^16.3.1",
-    "eslint": "8.45.0",
-    "eslint-config-next": "13.4.10",
-    "googleapis": "^123.0.0",
-    "googlephotos": "^0.3.5",
-    "next": "13.4.10",
-    "postcss": "8.4.26",
-    "react": "18.2.0",
-    "react-dom": "18.2.0",
-    "react-icons": "^4.10.1",
-    "tailwindcss": "3.3.3",
-    "typescript": "5.1.6",
-    "zod": "^3.21.4",
-    "zustand": "^4.4.1"
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/instrument-serif": "^5.3.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-router": "^7.18.4",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
-    "webpack": "^5.88.2"
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.63.0",
+    "@testing-library/react": "^16.3.3",
+    "@types/node": "^26.6.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "jsdom": "^29.1.1",
+    "serve": "^14.2.6",
+    "sharp": "^0.35.5",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.1",
+    "vitest": "^4.1.11"
   }
 }

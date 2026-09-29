@@ -1,0 +1,21 @@
+{
+  "slug": "phoenix-zoo",
+  "title": "Phoenix Zoo",
+  "place": "Arizona",
+  "description": "Animals photographed at the Phoenix Zoo in Arizona.",
+  "photos": [
+    { "slug": "tiger", "source": "Phoenix Zoo/fam-10.JPG", "title": "Tiger", "alt": "A tiger lying on grass with its head raised, eyes half closed, facing the camera", "description": "A tiger at rest beside a leaning branch, its gaze narrowed and steady." },
+    { "slug": "giraffes", "source": "Phoenix Zoo/fam-72.JPG", "title": "Giraffes", "alt": "Three giraffes around a pole-mounted basket feeder, two of them reaching up to eat hay", "description": "Two giraffes feed from a hanging basket while the tallest looks away across the yard." },
+    { "slug": "elephant", "source": "Phoenix Zoo/fam-14.JPG", "title": "Elephant", "alt": "An elephant's head and shoulder in profile, trunk curled under and hay scattered on its back", "description": "Wrinkled grey skin fills the frame, a small twig hanging beside the curled trunk." },
+    { "slug": "pelicans", "source": "Phoenix Zoo/fam-19.JPG", "title": "Pelicans", "alt": "Six white pelicans standing on a floating platform of planks and driftwood over blue water", "description": "A group of pelicans rests together, orange feet planted on the edge of the float." },
+    { "slug": "flamingo", "source": "Phoenix Zoo/fam-36.JPG", "title": "Flamingo", "alt": "A pale pink flamingo facing the camera with its head bowed so the bill runs down its neck", "description": "Seen head-on, the bird folds into an almost perfect symmetry." },
+    { "slug": "jaguar", "source": "Phoenix Zoo/fam-15.JPG", "title": "Jaguar", "alt": "A jaguar in three-quarter profile with its mouth open, standing between a weathered trunk and a post", "description": "A jaguar bares its teeth between two upright timbers, its spotted coat in sharp detail." },
+    { "slug": "cactus-and-pond", "source": "Phoenix Zoo/fam-28.JPG", "title": "Pond garden", "alt": "A tall branching succulent beside a still pond, with a grassy island, pale dead branches and palms", "description": "A quiet corner of the zoo grounds, the pond holding the reflection of the sky." },
+    { "slug": "tortoise", "source": "Phoenix Zoo/fam-29.JPG", "title": "Tortoise", "alt": "A large tortoise with its neck raised, looking toward the camera over its domed shell", "description": "The ridges of the shell rise behind a head held up and alert." },
+    { "slug": "egret", "source": "Phoenix Zoo/fam-3.JPG", "title": "Egret", "alt": "A white egret with wispy plumes standing among green foliage", "description": "Soft plumes hang from the bird's back as it perches in bright sun." },
+    { "slug": "eagle", "source": "Phoenix Zoo/fam.JPG", "title": "Eagle", "alt": "An eagle's head and shoulders in black and white profile against a textured rock wall", "description": "Every feather edge stands out in monochrome, the hooked bill turned to the left." },
+    { "slug": "zebra", "source": "Phoenix Zoo/fam-49.JPG", "title": "Zebra", "alt": "A zebra with its head lowered, grazing on bare ground beside a boulder in dappled light", "description": "Narrow stripes broken up by patches of shade as the zebra feeds." },
+    { "slug": "tortoise-in-water", "source": "Phoenix Zoo/fam-67.JPG", "title": "Tortoise in water", "alt": "A tortoise resting its head at the surface of shallow water scattered with small floating leaves", "description": "A close view of a tortoise at rest in the shallows, its scaly foreleg and shell just beyond." },
+    { "slug": "alligator", "source": "Phoenix Zoo/fam-22.JPG", "title": "Alligator", "alt": "An alligator's broad head coated in green duckweed, one eye just above the water", "description": "Only the snout, eye and ridged back break the carpet of duckweed." }
+  ]
+}
