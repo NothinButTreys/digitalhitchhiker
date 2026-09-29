@@ -231,6 +231,7 @@ main:focus {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 24px;
   flex-shrink: 0;
 }
 
@@ -238,10 +239,12 @@ main:focus {
   display: flex;
   align-items: baseline;
   gap: 20px;
+  min-width: 0;
 }
 
 .strip-title h1 {
-  font-size: 44px;
+  font-size: clamp(28px, 3.4vw, 44px);
+  white-space: nowrap;
 }
 
 .strip-title .label,
@@ -256,7 +259,7 @@ main:focus {
 }
 
 .progress {
-  width: 240px;
+  width: clamp(80px, 16vw, 240px);
   height: 1px;
   background: var(--rule);
 }

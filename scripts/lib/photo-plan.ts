@@ -51,3 +51,17 @@ export function requireSource(photo: { slug: string; source?: string }, file: st
   if (!photo.source) throw new Error(`${file}: photo "${photo.slug}": source must not be empty`);
   return photo.source;
 }
+
+/**
+ * Guards against writing an empty manifest: an empty content folder, or
+ * content files that yield zero photographs, must never overwrite the
+ * manifest with `{}` (which would in turn prune every generated image).
+ */
+export function assertManifestNotEmpty(manifest: Manifest, contentDir: string): void {
+  if (Object.keys(manifest).length === 0) {
+    throw new Error(
+      `no photographs found: looked for set content files (*.json) under "${contentDir}" and found none, ` +
+        "or they listed no photographs; refusing to write an empty manifest",
+    );
+  }
+}

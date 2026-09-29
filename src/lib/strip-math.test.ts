@@ -46,6 +46,14 @@ describe("nearestIndex", () => {
       expect(nearestIndex([0, 1000, 2600, 2900], 2400, maxScroll)).toBe(3);
     });
   });
+
+  describe("when the strip cannot scroll at all", () => {
+    it("returns 0 regardless of the candidates or position", () => {
+      expect(nearestIndex([0], 0, 0)).toBe(0);
+      expect(nearestIndex([0, 500, 900], 0, 0)).toBe(0);
+      expect(nearestIndex([0, 500, 900], 0, -10)).toBe(0);
+    });
+  });
 });
 
 describe("formatCounter", () => {

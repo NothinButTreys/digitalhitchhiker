@@ -47,7 +47,7 @@ describe("removeUnexpected", () => {
     symlinkSync(path.join(root, "outside/original.jpg"), path.join(root, "public/photos/zoo/linked-640.jpg"));
     symlinkSync(path.join(root, "outside"), path.join(root, "public/photos/linked-set"));
 
-    const removed = await removeUnexpected(root, new Set());
+    const removed = await removeUnexpected(root, new Set(["public/photos/zoo/nothing-expected.avif"]));
 
     expect(removed).toEqual(["public/photos/zoo/tiger-640.avif"]);
     expect(readFileSync(path.join(root, "public/favicon.svg"), "utf8")).toBe("icon");
@@ -57,7 +57,15 @@ describe("removeUnexpected", () => {
 
   it("does nothing when public/photos does not exist", async () => {
     put("public/favicon.svg");
-    expect(await removeUnexpected(root, new Set())).toEqual([]);
+    expect(await removeUnexpected(root, new Set(["public/photos/zoo/tiger-640.avif"]))).toEqual([]);
     expect(existsSync(path.join(root, "public/favicon.svg"))).toBe(true);
+  });
+
+  it("throws and deletes nothing when the expected set is empty", async () => {
+    put("public/photos/zoo/tiger-640.avif");
+
+    await expect(removeUnexpected(root, new Set())).rejects.toThrow(/empty/i);
+
+    expect(existsSync(path.join(root, "public/photos/zoo/tiger-640.avif"))).toBe(true);
   });
 });

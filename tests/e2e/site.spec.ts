@@ -249,6 +249,46 @@ test.describe("header", () => {
   });
 });
 
+test.describe("footer", () => {
+  async function expectTitleFits(page: Page, label: string) {
+    const h1 = page.locator(".strip-title h1");
+    const box = await h1.boundingBox();
+    const lineHeight = await h1.evaluate((element) => parseFloat(getComputedStyle(element).lineHeight));
+    expect(box, `${label}: h1 has a box`).not.toBeNull();
+    expect(box!.height, `${label}: h1 is on one line`).toBeLessThan(lineHeight * 1.5);
+
+    const titleBox = await page.locator(".strip-title").boundingBox();
+    const controlsBox = await page.locator(".strip-controls").boundingBox();
+    expect(titleBox, `${label}: .strip-title has a box`).not.toBeNull();
+    expect(controlsBox, `${label}: .strip-controls has a box`).not.toBeNull();
+    expect(titleBox!.x + titleBox!.width, `${label}: title does not overlap controls`).toBeLessThanOrEqual(
+      controlsBox!.x + 0.5,
+    );
+
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow, `${label}: no horizontal scroll`).toBeLessThanOrEqual(0);
+  }
+
+  test("tablet: every set's footer title stays on one line and clear of the controls", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "tablet", "tablet layout only");
+    for (const each of sets) {
+      await page.goto(`/${each.slug}`);
+      await expectTitleFits(page, each.slug);
+    }
+  });
+
+  test("768x700: every set's footer title stays on one line and clear of the controls", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "tablet", "run once, from the tablet project");
+    await page.setViewportSize({ width: 768, height: 700 });
+    for (const each of sets) {
+      await page.goto(`/${each.slug}`);
+      await expectTitleFits(page, each.slug);
+    }
+  });
+});
+
 test.describe("photo page", () => {
   test("opens, moves next, and closes back to the strip", async ({ page }) => {
     await page.goto(`/${set.slug}/${first.slug}`);

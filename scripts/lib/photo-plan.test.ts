@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  assertManifestNotEmpty,
   expectedFiles,
   isStale,
   outputFile,
@@ -89,5 +90,20 @@ describe("requireSource", () => {
     expect(() => requireSource({ slug: "tiger" }, "content/sets/phoenix-zoo.json")).toThrow(
       'content/sets/phoenix-zoo.json: photo "tiger": source must not be empty',
     );
+  });
+});
+
+describe("assertManifestNotEmpty", () => {
+  it("throws on an empty manifest, naming what it looked for and where", () => {
+    expect(() => assertManifestNotEmpty({}, "content/sets")).toThrow(/content\/sets/);
+  });
+
+  it("passes on a one-entry manifest", () => {
+    expect(() =>
+      assertManifestNotEmpty(
+        { "phoenix-zoo/tiger": { width: 640, height: 480, widths: [640], color: "#000000" } },
+        "content/sets",
+      ),
+    ).not.toThrow();
   });
 });

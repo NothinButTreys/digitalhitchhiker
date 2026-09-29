@@ -33,6 +33,11 @@ async function regularFiles(dir: string): Promise<string[]> {
  * Only files inside that folder are ever considered.
  */
 export async function removeUnexpected(repoRoot: string, expected: Set<string>): Promise<string[]> {
+  if (expected.size === 0) {
+    throw new Error(
+      `refusing to remove files under ${PHOTOS_DIR}: the expected file set is empty`,
+    );
+  }
   const root = path.resolve(repoRoot);
   const photos = path.resolve(root, PHOTOS_DIR);
   const removed: string[] = [];

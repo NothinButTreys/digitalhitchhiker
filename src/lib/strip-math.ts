@@ -5,6 +5,7 @@
  * later frame so the last photograph can be reached.
  */
 export function nearestIndex(offsets: number[], position: number, maxScroll: number): number {
+  if (maxScroll <= 0) return 0;
   const atEnd = position >= maxScroll - 1;
   let best = 0;
   let bestDistance = Number.POSITIVE_INFINITY;

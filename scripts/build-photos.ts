@@ -7,6 +7,7 @@ import sharp from "sharp";
 import { widthsFor } from "../src/data/photo-url";
 import { parseSetContent, type Manifest } from "../src/data/schema";
 import {
+  assertManifestNotEmpty,
   expectedFiles,
   isStale,
   outputFile,
@@ -91,6 +92,8 @@ async function build(tmpDir: string) {
       };
     }
   }
+
+  assertManifestNotEmpty(manifest, CONTENT_DIR);
 
   const sorted = Object.fromEntries(Object.entries(manifest).sort(([a], [b]) => a.localeCompare(b)));
   await writeFile(MANIFEST_FILE, `${JSON.stringify(sorted, null, 2)}\n`);
