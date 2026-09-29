@@ -1,0 +1,15 @@
+{
+  "slug": "montreal",
+  "title": "Montréal",
+  "place": "Québec",
+  "description": "Winter streets and buildings in Montréal, Québec.",
+  "photos": [
+    { "slug": "red-facade", "source": "Montreal/BCAA6DD0-074D-4BDB-BBDC-BB4C2AA592EC.jpeg", "title": "Red façade", "alt": "An ornate stone façade washed in red light above lit shop windows and a glowing street lamp", "description": "Arched windows glow red over a street of parked cars, with a single lamp burning in front." },
+    { "slug": "brick-and-snow", "source": "Montreal/5AEF5643-F959-451C-A580-96B38CF9F5B7.jpeg", "title": "Brick and snow", "alt": "A red brick and sandstone building facing a snow-covered square with two picnic tables", "description": "A patterned brick front stands squarely across fresh snow, taller towers rising behind it." },
+    { "slug": "clock-tower-corner", "source": "Montreal/IMG_2387.JPG", "title": "Clock tower corner", "alt": "A stone corner building with bay windows and a clock tower, in muted sepia tones", "description": "Looking up at a corner building whose clock tower tops a stack of carved bays." },
+    { "slug": "icy-street", "source": "Montreal/Snapseed(1).heic", "title": "Icy street", "alt": "A narrow icy street between stone and brick buildings, lit by lanterns and street lamps", "description": "Slush and ice lead the eye down a lamplit street, parked cars lining one side." },
+    { "slug": "downtown-avenue", "source": "Montreal/C3A47C87-6152-4C53-9017-B37E7F0F275C.jpg", "title": "Downtown avenue", "alt": "A downtown avenue of lit high-rise towers and bare trees, with car tail lights below", "description": "Lit windows glow on both sides of the avenue under a deep teal sky." },
+    { "slug": "lit-building", "source": "Montreal/8BB548C9-7553-4FDC-B6BD-F5D9410EB99D.jpeg", "title": "Lit building", "alt": "A large stone building lit warmly behind bare trees and snow-covered ground under a deep blue sky", "description": "Street lamps and lit windows glow across a wet road lined with banked snow." },
+    { "slug": "fire-escape", "source": "Montreal/Snapseed.heic", "title": "Fire escape", "alt": "A black and white view of a brick building with a zigzag fire escape behind no-parking signs", "description": "A street lamp flares at the end of the lane, where two figures stand in the dark." }
+  ]
+}
