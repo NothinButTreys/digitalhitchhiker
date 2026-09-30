@@ -1,0 +1,83 @@
+:root {
+  --bg: #0b0b0a;
+  --text: #f2efe6;
+  --muted: #a9a69d;
+  --rule: #3a3833;
+  --warn: #e0b45c;
+  --display: "Instrument Serif", Georgia, serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+h1, h2 { margin: 0; font-family: var(--display); font-style: italic; font-weight: 400; line-height: 1.1; }
+h1 { font-size: 44px; }
+h2 { font-size: 28px; }
+p { margin: 0; }
+img { display: block; max-width: 100%; }
+
+a { color: var(--text); text-underline-offset: 3px; }
+:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+
+.label { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; }
+.muted { color: var(--muted); }
+.problem { color: var(--warn); border: 1px solid var(--warn); padding: 12px 16px; }
+.problem-block { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+
+.page { min-height: 100dvh; display: flex; flex-direction: column; }
+.site-header { padding: 0 20px; height: 60px; display: flex; align-items: center; border-bottom: 1px solid var(--rule); }
+.wordmark { text-decoration: none; min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; }
+main { padding: 24px 20px 64px; max-width: 1100px; width: 100%; margin: 0 auto; }
+.screen { display: flex; flex-direction: column; gap: 24px; }
+
+button, input, textarea, select {
+  font: inherit;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: 0;
+}
+button { min-width: 44px; min-height: 44px; padding: 0 16px; cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--muted); }
+button:disabled { color: var(--muted); cursor: default; opacity: 0.6; }
+input, textarea, select { width: 100%; min-height: 44px; padding: 10px 12px; }
+label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+
+.rows { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
+.row { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; justify-content: space-between; padding: 16px 0; border-bottom: 1px solid var(--rule); }
+.row-main { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; }
+.row-title { font-family: var(--display); font-style: italic; font-size: 26px; text-decoration: none; min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; }
+.row-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.status[data-status="Live"] { color: var(--text); }
+.status[data-status="Hidden"], .status[data-status="Not shown"] { color: var(--muted); }
+
+.panel { display: flex; flex-direction: column; gap: 16px; padding: 20px; border: 1px solid var(--rule); max-width: 560px; }
+
+.group { display: flex; flex-direction: column; gap: 16px; }
+.tiles { list-style: none; margin: 0; padding: 0; display: grid; gap: 20px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.tile { display: flex; flex-direction: column; gap: 8px; }
+.tile img { width: 100%; height: auto; background: #151513; }
+.upload p, .tile p, .editor p { overflow-wrap: anywhere; }
+
+.editor { width: min(640px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow: auto; padding: 20px; background: var(--bg); color: var(--text); border: 1px solid var(--rule); display: flex; flex-direction: column; gap: 16px; }
+.editor:not([open]) { display: none; }
+.editor::backdrop { background: rgb(0 0 0 / 0.7); }
+.editor img { max-height: 50dvh; width: auto; margin: 0 auto; }
+.editor-form { display: flex; flex-direction: column; gap: 12px; }
+.editor-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; }
+.editor-actions label { flex: 1 1 200px; }
+
+.upload { display: flex; flex-direction: column; gap: 8px; padding: 16px; border: 1px dashed var(--rule); }
+.upload-label { color: var(--text); }
+.upload input[type="file"] { padding: 8px; }
+.problem ul { margin: 0; padding-left: 18px; }
