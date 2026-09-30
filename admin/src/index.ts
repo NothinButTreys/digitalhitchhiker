@@ -1,9 +1,11 @@
 import { Hono } from "hono";
+import { failStalePublishes } from "./db/publishes";
 import type { AppEnv, Env } from "./env";
 import { requireIdentity, requireOwner } from "./lib/auth";
 import { ApiError } from "./lib/errors";
 import { categories } from "./routes/categories";
 import { categoryPhotos, photos } from "./routes/photos";
+import { publishes } from "./routes/publishes";
 import { service } from "./routes/service";
 import { cleanUpStaleUploads, uploads } from "./routes/uploads";
 
@@ -25,6 +27,7 @@ owner.route("/categories", categories);
 owner.route("/categories", categoryPhotos);
 owner.route("/photos", photos);
 owner.route("/uploads", uploads);
+owner.route("/publishes", publishes);
 app.route("/api", owner);
 
 // Static files are served by the assets layer before the Worker runs.
@@ -44,6 +47,7 @@ export default {
   fetch: app.fetch,
   async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext) {
     ctx.waitUntil(cleanUpStaleUploads(env, new Date()));
+    ctx.waitUntil(failStalePublishes(env.DB, new Date()));
   },
 };
 
