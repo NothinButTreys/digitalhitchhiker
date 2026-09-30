@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Api } from "../api";
 import type { PublishOut, PublishState } from "../types";
 import { usePublish } from "../use-publish";
@@ -53,7 +53,7 @@ function Standing({ state, formatTime }: { state: PublishState; formatTime: (iso
  * go out, offers a preview first, and follows a publish to its outcome.
  */
 export function PublishPanel({ api, formatTime = defaultFormat, pollMs }: Props) {
-  const { state, problem, active, refresh, start } = usePublish(api, pollMs);
+  const { state, problem, startProblem, active, starting, refresh, start } = usePublish(api, pollMs);
   const [open, setOpen] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null);
 
@@ -66,7 +66,22 @@ export function PublishPanel({ api, formatTime = defaultFormat, pollMs }: Props)
     dialog.current?.querySelector<HTMLElement>("h2")?.focus();
   };
 
-  const blocked = !state || state.problems.length > 0;
+  // The dialog can be closed while a publish runs, so its end is announced
+  // from outside it, in a region that is already in the page.
+  const [announcement, setAnnouncement] = useState("");
+  const wasActive = useRef(false);
+  const latest = state?.latest ?? null;
+  useEffect(() => {
+    // Emptied while a publish runs, so the next one reads out afresh even if its words are the same.
+    if (active) setAnnouncement("");
+    if (wasActive.current && !active && latest) {
+      if (latest.status === "failed") setAnnouncement(`The publish failed. ${latest.message}`);
+      else if (latest.status === "succeeded") setAnnouncement(latest.target === "preview" ? "The preview is ready." : "Published to the site.");
+    }
+    wasActive.current = active;
+  }, [active, latest]);
+
+  const blocked = !state || state.problems.length > 0 || starting;
   const press = (target: "preview" | "production") => () => {
     if (!blocked) void start(target);
   };
@@ -83,6 +98,10 @@ export function PublishPanel({ api, formatTime = defaultFormat, pollMs }: Props)
         Publish
         {state?.unpublishedChanges && <span className="publish-dot" aria-hidden="true" />}
       </button>
+
+      <p role="status" className="visually-hidden">
+        {announcement}
+      </p>
 
       <dialog ref={dialog} className="dialog" aria-labelledby="publish-heading" onClose={() => setOpen(false)}>
         <DialogClose onClose={() => dialog.current?.close()} />
@@ -120,8 +139,9 @@ export function PublishPanel({ api, formatTime = defaultFormat, pollMs }: Props)
                   ))
                 )}
                 <Standing state={state} formatTime={formatTime} />
+                {starting && <p role="status">Starting…</p>}
                 {/* A start that was just refused is already explained above. */}
-                {!problem && <Outcome latest={state.latest} />}
+                {!startProblem && <Outcome latest={state.latest} />}
                 <div className="form-actions">
                   <button type="button" aria-disabled={blocked || undefined} onClick={press("preview")}>
                     Preview first

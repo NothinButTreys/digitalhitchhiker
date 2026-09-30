@@ -152,4 +152,76 @@ describe("PublishPanel", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(document.activeElement).toBe(button);
   });
+  it("sends one request when Publish is pressed twice before the start has answered", async () => {
+    let finish: (out: PublishOut) => void = () => {};
+    const startPublish = vi.fn(() => new Promise<PublishOut>((resolve) => (finish = resolve)));
+    setup([state(), state(), state({ latest: publish() })], { startPublish } as unknown as Partial<Api>);
+    const dialog = await open();
+    const publishButton = dialog.getByRole("button", { name: "Publish to the site" });
+    const previewButton = dialog.getByRole("button", { name: "Preview first" });
+    await userEvent.click(publishButton);
+    await userEvent.click(publishButton);
+    await userEvent.click(previewButton);
+    expect(startPublish).toHaveBeenCalledTimes(1);
+    expect(dialog.getByRole("status").textContent).toBe("Starting…");
+    expect(publishButton.getAttribute("aria-disabled")).toBe("true");
+    expect(previewButton.getAttribute("aria-disabled")).toBe("true");
+    await act(async () => finish(publish()));
+    expect((await dialog.findByRole("status")).textContent).toContain("Publishing a preview");
+    expect(dialog.queryByText("Starting…")).toBeNull();
+  });
+
+  it("clears a failed refresh when a later one succeeds", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const running = state({ latest: publish({ status: "running" }) });
+    const publishState = vi.fn();
+    publishState.mockResolvedValueOnce(running).mockResolvedValueOnce(running).mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    publishState.mockResolvedValue(running);
+    render(<PublishPanel api={{ publishState, startPublish: vi.fn() } as unknown as Api} pollMs={1000} />);
+    await user.click(await screen.findByRole("button", { name: /^Publish/ }));
+    const dialog = within(screen.getByRole("dialog", { name: "Publish" }));
+    await dialog.findByText(/Publishing/);
+    await act(() => vi.advanceTimersByTimeAsync(1000));
+    await dialog.findByRole("alert");
+    await act(() => vi.advanceTimersByTimeAsync(1000));
+    await waitFor(() => expect(dialog.queryByRole("alert")).toBeNull());
+  });
+
+  it("keeps showing why the last publish failed when a refresh fails", async () => {
+    const failed = state({ latest: publish({ status: "failed", message: "Checking the built site failed.", finishedAt: "2026-09-30T12:05:00.000Z" }) });
+    const publishState = vi.fn();
+    publishState.mockResolvedValueOnce(failed).mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    publishState.mockResolvedValue(failed);
+    render(<PublishPanel api={{ publishState, startPublish: vi.fn() } as unknown as Api} pollMs={1000} />);
+    await userEvent.click(await screen.findByRole("button", { name: /^Publish/ }));
+    const dialog = within(screen.getByRole("dialog", { name: "Publish" }));
+    await waitFor(() => expect(dialog.getAllByRole("alert").map((a) => a.textContent)).toContain("The last publish failed. Checking the built site failed."));
+  });
+
+  describe("announcing a publish that finishes", () => {
+    const announcement = () => document.querySelector<HTMLElement>('p.visually-hidden[role="status"]');
+
+    async function finishWith(done: PublishOut) {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      setup([state({ latest: publish({ target: done.target, status: "running" }) }), state({ latest: done })]);
+      await screen.findByRole("button", { name: /^Publish/ });
+      expect(announcement()?.textContent).toBe("");
+      await act(() => vi.advanceTimersByTimeAsync(1000));
+      await waitFor(() => expect(announcement()?.textContent).not.toBe(""));
+      return announcement()?.textContent;
+    }
+
+    it("for a preview that is ready", async () => {
+      expect(await finishWith(publish({ status: "succeeded", url: "https://preview.example/x", finishedAt: "2026-09-30T12:05:00.000Z" }))).toBe("The preview is ready.");
+    });
+
+    it("for a publish to the site", async () => {
+      expect(await finishWith(publish({ target: "production", status: "succeeded", url: "https://site.example", finishedAt: "2026-09-30T12:05:00.000Z" }))).toBe("Published to the site.");
+    });
+
+    it("for a publish that failed", async () => {
+      expect(await finishWith(publish({ status: "failed", message: "Checking the built site failed.", finishedAt: "2026-09-30T12:05:00.000Z" }))).toBe("The publish failed. Checking the built site failed.");
+    });
+  });
 });
