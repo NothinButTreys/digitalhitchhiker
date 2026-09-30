@@ -265,7 +265,10 @@ test("create a category, land in it, upload, write text, show, reorder three way
     await expect.poll(names).toEqual([title, ...before.slice(0, -1)]);
     await expect(page.getByRole("heading", { level: 1, name: "Library" })).toBeVisible();
     expect(new URL(page.url()).pathname).toBe("/");
-    // And a plain click on the same link still goes there.
+    // And a plain click on the same link still goes there. The new order shows
+    // at once, so this test reaches the click within the moment after a drag
+    // in which clicks are discarded; a person cannot, so it waits as one would.
+    await page.waitForTimeout(150);
     await link.click();
     await expect(page.getByRole("heading", { level: 1, name: title })).toBeFocused();
     await expect(page).toHaveTitle(`${title} — Library — Digital Hitchhiker`);
