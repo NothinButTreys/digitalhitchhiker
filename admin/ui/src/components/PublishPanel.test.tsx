@@ -40,6 +40,9 @@ function setup(states: PublishState[], api: Partial<Api> = {}) {
   return fake;
 }
 
+/** The dialog's visible status line; the hidden announcement inside the dialog is also a status. */
+const visibleStatus = (dialog: ReturnType<typeof within>) => dialog.getAllByRole("status").find((element: HTMLElement) => !element.classList.contains("visually-hidden"))!;
+
 const open = async () => {
   await userEvent.click(await screen.findByRole("button", { name: /^Publish/ }));
   return within(screen.getByRole("dialog", { name: "Publish" }));
@@ -101,11 +104,11 @@ describe("PublishPanel", () => {
     await user.click(dialog.getByRole("button", { name: "Preview first" }));
     expect(api.startPublish).toHaveBeenCalledWith("preview");
 
-    expect((await dialog.findByRole("status")).textContent).toContain("Publishing a preview");
+    await waitFor(() => expect(visibleStatus(dialog).textContent).toContain("Publishing a preview"));
     expect(dialog.queryByRole("button", { name: "Preview first" })).toBeNull();
 
     await act(() => vi.advanceTimersByTimeAsync(1000));
-    await waitFor(() => expect(dialog.getByRole("status").textContent).toContain("Preparing photographs (3 of 47)"));
+    await waitFor(() => expect(visibleStatus(dialog).textContent).toContain("Preparing photographs (3 of 47)"));
 
     await act(() => vi.advanceTimersByTimeAsync(1000));
     const link = await dialog.findByRole("link", { name: "Open the preview" });
@@ -163,11 +166,11 @@ describe("PublishPanel", () => {
     await userEvent.click(publishButton);
     await userEvent.click(previewButton);
     expect(startPublish).toHaveBeenCalledTimes(1);
-    expect(dialog.getByRole("status").textContent).toBe("Starting…");
+    expect(visibleStatus(dialog).textContent).toBe("Starting…");
     expect(publishButton.getAttribute("aria-disabled")).toBe("true");
     expect(previewButton.getAttribute("aria-disabled")).toBe("true");
     await act(async () => finish(publish()));
-    expect((await dialog.findByRole("status")).textContent).toContain("Publishing a preview");
+    await waitFor(() => expect(visibleStatus(dialog).textContent).toContain("Publishing a preview"));
     expect(dialog.queryByText("Starting…")).toBeNull();
   });
 
@@ -199,8 +202,22 @@ describe("PublishPanel", () => {
     await waitFor(() => expect(dialog.getAllByRole("alert").map((a) => a.textContent)).toContain("The last publish failed. Checking the built site failed."));
   });
 
+  it("lets go of a refused start once the dialog is closed and opened again", async () => {
+    const startPublish = vi.fn(async () => {
+      throw new ApiRequestError(409, "publish_running", "A publish is already under way. Wait for it to finish.");
+    });
+    setup([state()], { startPublish } as unknown as Partial<Api>);
+    const dialog = await open();
+    await userEvent.click(dialog.getByRole("button", { name: "Publish to the site" }));
+    expect((await dialog.findByRole("alert")).textContent).toContain("already under way");
+    await userEvent.click(dialog.getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    const again = await open();
+    await waitFor(() => expect(again.queryByRole("alert")).toBeNull());
+  });
+
   describe("announcing a publish that finishes", () => {
-    const announcement = () => document.querySelector<HTMLElement>('p.visually-hidden[role="status"]');
+    const announcement = () => document.querySelector<HTMLElement>('p.visually-hidden[role="status"][data-announcement="outside"]');
 
     async function finishWith(done: PublishOut) {
       vi.useFakeTimers({ shouldAdvanceTime: true });
@@ -222,6 +239,19 @@ describe("PublishPanel", () => {
 
     it("for a publish that failed", async () => {
       expect(await finishWith(publish({ status: "failed", message: "Checking the built site failed.", finishedAt: "2026-09-30T12:05:00.000Z" }))).toBe("The publish failed. Checking the built site failed.");
+    });
+
+    it("from inside the dialog as well, since everything outside an open dialog is inert", async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      const done = publish({ status: "succeeded", url: "https://preview.example/x", finishedAt: "2026-09-30T12:05:00.000Z" });
+      const running = state({ latest: publish({ status: "running" }) });
+      setup([running, running, state({ latest: done })]);
+      await user.click(await screen.findByRole("button", { name: /^Publish/ }));
+      const inside = () => screen.getByRole("dialog", { name: "Publish" }).querySelector('p.visually-hidden[role="status"][data-announcement="inside"]');
+      expect(inside()?.textContent).toBe("");
+      await act(() => vi.advanceTimersByTimeAsync(1000));
+      await waitFor(() => expect(inside()?.textContent).toBe("The preview is ready."));
     });
   });
 });

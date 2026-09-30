@@ -53,12 +53,13 @@ function Standing({ state, formatTime }: { state: PublishState; formatTime: (iso
  * go out, offers a preview first, and follows a publish to its outcome.
  */
 export function PublishPanel({ api, formatTime = defaultFormat, pollMs }: Props) {
-  const { state, problem, startProblem, active, starting, refresh, start } = usePublish(api, pollMs);
+  const { state, problem, startProblem, clearStartProblem, active, starting, refresh, start } = usePublish(api, pollMs);
   const [open, setOpen] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null);
 
   const show = () => {
     setOpen(true);
+    clearStartProblem();
     void refresh();
     // The dialog is in the page from the first render, so it can be opened
     // in the same press and the browser remembers the button to return to.
@@ -99,11 +100,17 @@ export function PublishPanel({ api, formatTime = defaultFormat, pollMs }: Props)
         {state?.unpublishedChanges && <span className="publish-dot" aria-hidden="true" />}
       </button>
 
-      <p role="status" className="visually-hidden">
+      <p role="status" className="visually-hidden" data-announcement="outside">
         {announcement}
       </p>
 
       <dialog ref={dialog} className="dialog" aria-labelledby="publish-heading" onClose={() => setOpen(false)}>
+        {/* While the dialog is open, everything outside it is inert, so the
+            same announcement is made from inside it too. Only one of the two
+            is exposed at a time. */}
+        <p role="status" className="visually-hidden" data-announcement="inside">
+          {announcement}
+        </p>
         <DialogClose onClose={() => dialog.current?.close()} />
         <h2 id="publish-heading" tabIndex={-1}>
           Publish

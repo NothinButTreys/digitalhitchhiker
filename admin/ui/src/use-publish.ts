@@ -62,5 +62,7 @@ export function usePublish(api: Api, pollMs = 4000) {
     [api, refresh],
   );
 
-  return { state, problem: startProblem ?? loadProblem, startProblem, active, starting, refresh, start };
+  const clearStartProblem = useCallback(() => setStartProblem(null), []);
+
+  return { state, problem: startProblem ?? loadProblem, startProblem, clearStartProblem, active, starting, refresh, start };
 }
