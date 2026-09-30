@@ -33,7 +33,6 @@ const manifestEntrySchema = z
 
 const manifestSchema = z.record(z.string(), manifestEntrySchema);
 
-const setOrderSchema = z.array(slug).min(1, "must list at least one set");
 
 export type PhotoContent = z.infer<typeof photoContentSchema>;
 export type SetContent = z.infer<typeof setContentSchema>;
@@ -59,7 +58,9 @@ export function parseManifest(raw: unknown): Manifest {
 }
 
 export function parseSetOrder(raw: unknown): string[] {
-  const result = setOrderSchema.safeParse(raw);
+  // Built here, not at module level: this module is in the browser bundle
+  // through catalog.ts, and the site never validates the order at run time.
+  const result = z.array(slug).min(1, "must list at least one set").safeParse(raw);
   if (!result.success) throw new Error(`content/set-order.json: ${describe(result.error)}`);
   const repeated = result.data.find((entry, index) => result.data.indexOf(entry) !== index);
   if (repeated) throw new Error(`content/set-order.json: lists "${repeated}" more than once`);
