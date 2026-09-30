@@ -6,6 +6,7 @@ export const OWNER = "owner@example.com";
 export async function resetDb(): Promise<void> {
   await applyD1Migrations(env.DB, env.TEST_MIGRATIONS);
   await env.DB.batch([
+    env.DB.prepare("DELETE FROM publishes"),
     env.DB.prepare("DELETE FROM uploads"),
     env.DB.prepare("DELETE FROM photos"),
     env.DB.prepare("DELETE FROM categories"),
