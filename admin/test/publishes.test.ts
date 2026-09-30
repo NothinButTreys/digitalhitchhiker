@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublishOut, PublishState } from "../src/db/publishes";
 import { github } from "../src/lib/github";
 import worker from "../src/index";
-import { api, approved, resetDb, seedCategory, seedPhoto } from "./helpers";
+import { api, approved, resetDb, seedCategory, seedPhoto, service } from "./helpers";
 
 beforeEach(resetDb);
 afterEach(() => vi.restoreAllMocks());
@@ -61,6 +61,21 @@ describe("POST /api/publishes", () => {
     // A failed start does not block the next try.
     vi.spyOn(github, "fetch").mockResolvedValue(new Response(null, { status: 204 }));
     expect((await start("preview")).status).toBe(201);
+  });
+
+  it("refuses the publish workflow's own identity", async () => {
+    const fetch = vi.spyOn(github, "fetch");
+    await seedLive();
+    expect((await service("/api/publishes", { method: "POST", json: { target: "preview" } })).status).toBe(403);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("never puts the token in the answer to a refused dispatch", async () => {
+    vi.spyOn(github, "fetch").mockResolvedValue(new Response("Bad credentials test-token", { status: 401 }));
+    await seedLive();
+    const response = await start("preview");
+    expect(response.status).toBe(502);
+    expect(await response.text()).not.toContain("test-token");
   });
 
   it("refuses an unknown target, a body that is not JSON, and anyone but the owner", async () => {

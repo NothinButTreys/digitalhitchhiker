@@ -27,7 +27,15 @@ publishes.post("/", async (c) => {
     // Nothing is running, so the publish must not stay "queued" and block
     // the next one for half an hour.
     const message = error instanceof ApiError ? error.message : "Could not start the publish.";
-    await recordStatus(c.env.DB, publish.id, { status: "failed", message, url: "" }, new Date());
+    // Rarely, GitHub accepts the dispatch and only the response is lost. Then the
+    // publish is marked failed and the lock freed while a workflow may still start;
+    // the workflow's own concurrency group serialises the runs.
+    try {
+      await recordStatus(c.env.DB, publish.id, { status: "failed", message, url: "" }, new Date());
+    } catch (recordError) {
+      // The dispatch error below is the cause the owner needs; do not let this mask it.
+      console.error("Could not record the failed publish start", recordError);
+    }
     throw error;
   }
   return c.json(publish, 201);

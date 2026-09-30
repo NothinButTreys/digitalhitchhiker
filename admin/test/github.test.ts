@@ -13,6 +13,7 @@ describe("dispatchPublish", () => {
     const [url, init] = fetch.mock.calls[0]!;
     expect(url).toBe("https://api.github.com/repos/example/site/actions/workflows/publish.yml/dispatches");
     expect(init.method).toBe("POST");
+    expect(init.signal).toBeInstanceOf(AbortSignal);
     const headers = new Headers(init.headers);
     expect(headers.get("authorization")).toBe("Bearer test-token");
     expect(headers.get("user-agent")).toBe("digital-hitchhiker-admin");

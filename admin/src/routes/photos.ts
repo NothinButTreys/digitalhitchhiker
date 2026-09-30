@@ -235,6 +235,12 @@ photos.delete("/:id", async (c) => {
   // checks before the row above was removed yet land after the first sweep
   // listed the prefix. Once the row is gone no new file is kept (the PUT
   // removes its own), so one more pass here finds every file that slipped in.
-  await sweepDerived(c.env.BUCKET, row.content_hash);
+  // The delete is complete by now: a failure here must not become a 500 that a
+  // retry would then answer with 404.
+  try {
+    await sweepDerived(c.env.BUCKET, row.content_hash);
+  } catch (error) {
+    console.error("Could not sweep generated files after deleting a photograph", error);
+  }
   return c.body(null, 204);
 });

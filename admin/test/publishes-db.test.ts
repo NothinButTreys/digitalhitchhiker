@@ -10,7 +10,7 @@ import {
   publishState,
   recordStatus,
 } from "../src/db/publishes";
-import type { Snapshot } from "../src/db/snapshot";
+import { buildSnapshot, type Snapshot } from "../src/db/snapshot";
 import { approved, resetDb, seedCategory, seedPhoto } from "./helpers";
 
 beforeEach(resetDb);
@@ -118,7 +118,7 @@ describe("lastPublishedSnapshot and publishState", () => {
       summary: { categories: 1, photographs: 1 },
     });
 
-    const { snapshot: current } = await (await import("../src/db/snapshot")).buildSnapshot(env.DB);
+    const { snapshot: current } = await buildSnapshot(env.DB);
     const publish = await createPublish(env.DB, "production", current, at(1));
     await recordStatus(env.DB, publish.id, { status: "succeeded", message: "", url: "" }, at(2));
     const after = await publishState(env.DB, at(3));

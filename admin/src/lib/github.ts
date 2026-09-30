@@ -32,6 +32,8 @@ export async function dispatchPublish(env: Settings, input: { publishId: string;
           "content-type": "application/json",
         },
         body: JSON.stringify({ ref: env.GITHUB_REF, inputs: { publish_id: input.publishId, target: input.target } }),
+        // A hanging call would hold the single-publish lock; the catch below turns the abort into a plain failure.
+        signal: AbortSignal.timeout(10_000),
       },
     );
   } catch {
