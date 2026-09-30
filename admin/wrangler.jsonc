@@ -15,7 +15,7 @@
     {
       "binding": "DB",
       "database_name": "digital-hitchhiker",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "613f5b07-bd17-44ef-974d-2f3b3b04c8ce",
       "migrations_dir": "migrations"
     }
   ],
