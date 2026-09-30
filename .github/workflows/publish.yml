@@ -1,0 +1,59 @@
+name: Publish
+
+# Started by the library admin when the owner presses Publish; it is not
+# meant to be started by hand. It rebuilds the site from the library and
+# deploys it. This log is public: nothing here prints a secret, the
+# library's address, or an original file's name.
+run-name: Publish to ${{ inputs.target }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_id:
+        description: The publish to carry out (set by the admin)
+        required: true
+        type: string
+      target:
+        description: Where to deploy
+        required: true
+        type: choice
+        options:
+          - preview
+          - production
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    # macOS, because HEIC originals are converted with `sips`.
+    runs-on: macos-latest
+    timeout-minutes: 120
+    env:
+      LIBRARY_URL: ${{ secrets.LIBRARY_URL }}
+      LIBRARY_CLIENT_ID: ${{ secrets.LIBRARY_CLIENT_ID }}
+      LIBRARY_CLIENT_SECRET: ${{ secrets.LIBRARY_CLIENT_SECRET }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      # Passed through the environment, never pasted into a command.
+      PUBLISH_ID: ${{ inputs.publish_id }}
+      # Dependencies are installed once, below; `vercel build` must not reinstall them.
+      DH_SKIP_INSTALL: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm install --global vercel@latest
+      - name: Publish
+        run: npm run publish:run
+      - name: Report a publish that stopped without saying why
+        if: ${{ failure() || cancelled() }}
+        run: npx tsx scripts/publish/run.ts fail
