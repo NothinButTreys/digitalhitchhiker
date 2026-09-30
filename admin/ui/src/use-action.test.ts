@@ -73,6 +73,56 @@ describe("useAction", () => {
     expect(result.current.problem).toEqual({ code: "unexpected", message: "Something went wrong." });
   });
 
+  it("runs changes one at a time, in the order asked, and is busy until the last has settled", async () => {
+    const { result } = renderHook(() => useAction());
+    const events: string[] = [];
+    let finishFirst!: () => void;
+    const first = () =>
+      new Promise<void>((resolve) => {
+        events.push("first started");
+        finishFirst = () => {
+          events.push("first finished");
+          resolve();
+        };
+      });
+    const second = async () => {
+      events.push("second started");
+    };
+
+    let done!: Promise<void>;
+    act(() => {
+      void result.current.run(first);
+      done = result.current.run(second);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    // The second press is neither dropped nor started early.
+    expect(events).toEqual(["first started"]);
+    expect(result.current.busy).toBe(true);
+
+    await act(async () => {
+      finishFirst();
+      await done;
+    });
+    expect(events).toEqual(["first started", "first finished", "second started"]);
+    expect(result.current.busy).toBe(false);
+  });
+
+  it("carries on with the next change after one fails, and keeps the failure on show", async () => {
+    const { result } = renderHook(() => useAction());
+    const second = vi.fn(async () => undefined);
+    await act(async () => {
+      void result.current.run(async () => {
+        throw new Error("first failed");
+      });
+      await result.current.run(second);
+    });
+    expect(second).toHaveBeenCalledTimes(1);
+    expect(result.current.problem).toEqual({ code: "unexpected", message: "first failed" });
+    expect(result.current.busy).toBe(false);
+  });
+
   it("clears a problem before running again", async () => {
     const { result } = renderHook(() => useAction());
     await act(async () => {

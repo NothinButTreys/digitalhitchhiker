@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiRequestError, type Api } from "../api";
@@ -42,6 +42,61 @@ describe("UploadButton", () => {
     expect(input.value).toBe("");
   });
 
+  it("takes photographs dropped onto it, and ignores a drag that carries no files", async () => {
+    const { input, upload } = setup();
+    const zone = input.closest(".upload")!;
+
+    fireEvent.dragOver(zone, { dataTransfer: { types: ["text/plain"], files: [] } });
+    expect(zone.hasAttribute("data-over")).toBe(false);
+
+    fireEvent.dragOver(zone, { dataTransfer: { types: ["Files"], files: [] } });
+    expect(zone.hasAttribute("data-over")).toBe(true);
+
+    fireEvent.drop(zone, { dataTransfer: { types: ["Files"], files: [file("a.jpg"), file("b.jpg")] } });
+    await waitFor(() => expect(screen.getByRole("status").textContent).toBe("2 added."));
+    expect((upload as any).mock.calls.map((call: any[]) => call[1].file.name)).toEqual(["a.jpg", "b.jpg"]);
+    expect(zone.hasAttribute("data-over")).toBe(false);
+  });
+
+  it("ignores a drop while a batch is already uploading", async () => {
+    let release!: (value: PhotoOut) => void;
+    const upload = vi.fn(() => new Promise<PhotoOut>((resolve) => (release = resolve))) as unknown as Api["upload"];
+    const { input } = setup({ upload });
+    await userEvent.upload(input, [file("a.jpg")]);
+    await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Uploading 1 of 1: a.jpg"));
+    fireEvent.drop(input.closest(".upload")!, { dataTransfer: { types: ["Files"], files: [file("late.jpg")] } });
+    release(photo("a.jpg"));
+    await waitFor(() => expect(screen.getByRole("status").textContent).toBe("1 added."));
+    expect((upload as any).mock.calls.map((call: any[]) => call[1].file.name)).toEqual(["a.jpg"]);
+  });
+
+  it("stops a file dropped outside the box from replacing the page, and leaves other drags alone", () => {
+    const { input } = setup();
+    const dropOn = (target: Element | Window, types: string[]) => {
+      const event = new Event("drop", { bubbles: true, cancelable: true });
+      Object.defineProperty(event, "dataTransfer", { value: { types, files: [] } });
+      target.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    expect(dropOn(document.body, ["Files"])).toBe(true);
+    expect(dropOn(document.body, ["text/plain"])).toBe(false);
+    cleanup();
+    expect(input.isConnected).toBe(false);
+    expect(dropOn(document.body, ["Files"])).toBe(false);
+  });
+
+  it("gives the keyboard's focus back to the input once a batch it started is done", async () => {
+    const { input } = setup();
+    // As a browser leaves things when its file chooser closes: the files are
+    // chosen and the input has the focus again.
+    input.focus();
+    fireEvent.change(input, { target: { files: [file("a.jpg")] } });
+    await waitFor(() => expect(input.disabled).toBe(true));
+    await waitFor(() => expect(screen.getByRole("status").textContent).toBe("1 added."));
+    expect(input.disabled).toBe(false);
+    expect(document.activeElement).toBe(input);
+  });
+
   it("shows progress while working and disables the input", async () => {
     let release!: (value: PhotoOut) => void;
     const upload = vi.fn(() => new Promise<PhotoOut>((resolve) => (release = resolve))) as unknown as Api["upload"];
@@ -49,8 +104,11 @@ describe("UploadButton", () => {
     await userEvent.upload(input, [file("a.jpg"), file("b.jpg")]);
     await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Uploading 1 of 2: a.jpg"));
     expect(input.disabled).toBe(true);
+    const bar = screen.getByRole("progressbar", { name: "Upload progress" }) as HTMLProgressElement;
+    expect([bar.value, bar.max]).toEqual([0, 2]);
     release(photo("a.jpg"));
     await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Uploading 2 of 2: b.jpg"));
+    expect((screen.getByRole("progressbar") as HTMLProgressElement).value).toBe(1);
   });
 
   it("carries on after a failure and lists what was not added", async () => {

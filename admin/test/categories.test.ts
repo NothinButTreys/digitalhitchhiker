@@ -29,6 +29,7 @@ describe("creating a category", () => {
       photoCount: 0,
       selectedCount: 0,
       live: false,
+      coverUrl: null,
     });
     expect(body.id).toMatch(/^[0-9a-f-]{36}$/);
   });
@@ -231,6 +232,29 @@ describe("listing categories", () => {
     expect(categories.map((c) => [c.title, c.photoCount, c.selectedCount, c.live])).toEqual([
       ["A", 2, 1, true],
       ["B", 1, 0, false],
+    ]);
+  });
+
+  it("names a cover photograph: the first shown one, else the newest, else none", async () => {
+    const a = (await create({ ...valid, title: "A" })).body;
+    const b = (await create({ ...valid, title: "B" })).body;
+    await create({ ...valid, title: "C" });
+    const insert = (id: string, categoryId: string, selected: number, position: number, createdAt: string) =>
+      env.DB.prepare(
+        "INSERT INTO photos (id, category_id, text_status, selected, position, original_key, preview_key, original_name, content_type, content_hash, width, height, source, created_at, updated_at) VALUES (?, ?, 'approved', ?, ?, 'o', 'p', 'n', 'image/jpeg', ?, 1, 1, 'upload', ?, ?)",
+      ).bind(id, categoryId, selected, position, `hash-${id}`, createdAt, createdAt).run();
+    await insert("a-unshown", a.id, 0, 0, "2026-09-29T03:00:00.000Z");
+    await insert("a-second", a.id, 1, 2, "2026-09-29T02:00:00.000Z");
+    await insert("a-first", a.id, 1, 1, "2026-09-29T01:00:00.000Z");
+    await insert("b-older", b.id, 0, 0, "2026-09-29T01:00:00.000Z");
+    await insert("b-newer", b.id, 0, 0, "2026-09-29T02:00:00.000Z");
+
+    const response = await api("/api/categories");
+    const { categories } = (await response.json()) as { categories: any[] };
+    expect(categories.map((c) => [c.title, c.coverUrl])).toEqual([
+      ["A", "/api/photos/a-first/preview"],
+      ["B", "/api/photos/b-newer/preview"],
+      ["C", null],
     ]);
   });
 });

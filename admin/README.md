@@ -23,6 +23,26 @@ npm run deploy         # builds the screens and deploys the Worker
 Never run `wrangler dev --remote`. It runs against the real database and
 bucket, not local copies.
 
+## The screens
+
+The header lists every category, so any of them is one press away from
+anywhere, and a plus button there starts a new one. Creating a category
+goes straight into it.
+
+Inside a category each photograph is a tile that is only the image until it
+is pointed at or focused, when its controls appear over it: a tick (shown on
+the site or not), a pencil (edit), and a trash can (delete). On a touch screen,
+where nothing can be pointed at, the tick always shows and tapping the image
+opens the editor, which holds everything else.
+
+Shown photographs, and the categories on the Library screen, are put in
+order by dragging (`ui/src/components/Sortable.tsx`, built on dnd-kit):
+with a mouse, with a finger after pressing and holding, or with the keyboard
+from each item's handle (Space, arrow keys, Space). Every move is read out
+to screen readers. The same moves are also offered as plain buttons in the
+photograph editor and the category details dialog, for anyone who cannot or
+would rather not drag.
+
 ## Signing in locally
 
 Locally there is no Cloudflare Access. `.dev.vars` sets `AUTH_MODE=dev` and

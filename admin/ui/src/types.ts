@@ -9,6 +9,7 @@ export type CategoryOut = {
   photoCount: number;
   selectedCount: number;
   live: boolean;
+  coverUrl: string | null;
 };
 
 export type TextStatus = "needs_text" | "approved";
