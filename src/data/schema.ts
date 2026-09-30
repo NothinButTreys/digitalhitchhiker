@@ -33,6 +33,8 @@ const manifestEntrySchema = z
 
 const manifestSchema = z.record(z.string(), manifestEntrySchema);
 
+const setOrderSchema = z.array(slug).min(1, "must list at least one set");
+
 export type PhotoContent = z.infer<typeof photoContentSchema>;
 export type SetContent = z.infer<typeof setContentSchema>;
 export type ManifestEntry = z.infer<typeof manifestEntrySchema>;
@@ -53,5 +55,13 @@ export function parseSetContent(raw: unknown, file: string): SetContent {
 export function parseManifest(raw: unknown): Manifest {
   const result = manifestSchema.safeParse(raw);
   if (!result.success) throw new Error(`manifest.json: ${describe(result.error)}`);
+  return result.data;
+}
+
+export function parseSetOrder(raw: unknown): string[] {
+  const result = setOrderSchema.safeParse(raw);
+  if (!result.success) throw new Error(`content/set-order.json: ${describe(result.error)}`);
+  const repeated = result.data.find((entry, index) => result.data.indexOf(entry) !== index);
+  if (repeated) throw new Error(`content/set-order.json: lists "${repeated}" more than once`);
   return result.data;
 }

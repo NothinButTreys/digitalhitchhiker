@@ -69,8 +69,8 @@ Photographs awaiting approval are tracked privately, outside this repository.
 ## Adding a set
 
 Create `content/sets/<slug>.json` with `slug`, `title`, `place`,
-`description`, and a `photos` array, add the slug to `setOrder` in
-`src/data/site.ts`, then follow the steps above for each photograph.
+`description`, and a `photos` array, add the slug to `content/set-order.json`,
+then follow the steps above for each photograph.
 
 ## Deployment
 

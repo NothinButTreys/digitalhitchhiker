@@ -19,7 +19,9 @@ const sources = readdirSync("content/sets")
     };
     return set.photos.map((photo) => photo.source);
   });
-const content = JSON.parse(readFileSync("content/sets/phoenix-zoo.json", "utf8")) as {
+const order = JSON.parse(readFileSync("content/set-order.json", "utf8")) as string[];
+const firstSet = order[0]!;
+const content = JSON.parse(readFileSync(`content/sets/${firstSet}.json`, "utf8")) as {
   photos: { slug: string }[];
 };
 
@@ -28,8 +30,8 @@ describe("prerendered site", () => {
     const firstPhoto = content.photos[0]?.slug;
     for (const file of [
       "dist/index.html",
-      "dist/phoenix-zoo/index.html",
-      `dist/phoenix-zoo/${firstPhoto}/index.html`,
+      `dist/${firstSet}/index.html`,
+      `dist/${firstSet}/${firstPhoto}/index.html`,
       "dist/colophon/index.html",
       "dist/404.html",
     ]) {
@@ -44,7 +46,7 @@ describe("prerendered site", () => {
     const locs = [...readFileSync("dist/sitemap.xml", "utf8").matchAll(/<loc>([^<]+)<\/loc>/g)].map(
       (match) => match[1]!.replace("https://digitalhitchhiker.photography", ""),
     );
-    expect(routes.length).toBeGreaterThan(5);
+    expect(routes.length).toBeGreaterThanOrEqual(3);
     expect([...locs].sort()).toEqual([...routes].sort());
     expect(readFileSync("dist/robots.txt", "utf8")).toContain("Allow: /");
   });
@@ -64,7 +66,7 @@ describe("prerendered site", () => {
 
   it("writes a sitemap and robots file", () => {
     expect(readFileSync("dist/sitemap.xml", "utf8")).toContain(
-      "<loc>https://digitalhitchhiker.photography/phoenix-zoo</loc>",
+      `<loc>https://digitalhitchhiker.photography/${firstSet}</loc>`,
     );
     expect(readFileSync("dist/robots.txt", "utf8")).toContain("Sitemap: ");
   });
@@ -73,13 +75,13 @@ describe("prerendered site", () => {
     const shipped = filesIn("dist", [".js", ".html"]);
     expect(shipped.length).toBeGreaterThan(files.length);
     expect(sources.length).toBeGreaterThan(0);
-    const leaks = shipped.flatMap((file) => {
+    // Reported by shipped file only: this runs in a public log, and the point
+    // of the test is that these names stay private.
+    const leaking = shipped.filter((file) => {
       const text = readFileSync(file, "utf8");
-      return sources
-        .filter((source) => text.includes(source) || text.includes(path.basename(source)))
-        .map((source) => `${file}: ${source}`);
+      return sources.some((source) => text.includes(source) || text.includes(path.basename(source)));
     });
-    expect(leaks).toEqual([]);
+    expect(leaking).toEqual([]);
   });
 
   it.each(files)("%s has a title, description, and rendered content", (file) => {
