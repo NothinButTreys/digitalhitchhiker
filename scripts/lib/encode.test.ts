@@ -37,6 +37,8 @@ describe("measure", () => {
 
 describe("encodeOriginal", () => {
   it("writes every width in both formats, turned upright, with private metadata removed", async () => {
+    // The private field must be in the source, or "removed" below proves nothing.
+    expect((await sharp(source).metadata()).exif).toBeDefined();
     const outDir = path.join(dir, "out");
     await mkdir(outDir);
     const { entry, files } = await encodeOriginal(source, outDir, dir);

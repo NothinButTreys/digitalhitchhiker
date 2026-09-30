@@ -38,14 +38,18 @@ const plural = (count: number, word: string, many = `${word}s`) => `${count} ${c
  */
 export async function publish(publishId: string, steps: Steps): Promise<void> {
   let step = "Fetching the library";
-  const say = async (message: string) => {
+  let deployed = false;
+  // False means the admin has given up on this publish (or it was never this
+  // run's to carry out), so nothing further may be built or deployed.
+  const stopped = () => new Error("The admin no longer expects this publish; stopping without deploying.");
+  const say = async (message: string): Promise<boolean> => {
     step = message;
     steps.log(message);
-    await steps.reportStatus(publishId, { status: "running", message });
+    return steps.reportStatus(publishId, { status: "running", message });
   };
 
   try {
-    await say(step);
+    if (!(await say(step))) throw stopped();
     const { target, snapshot } = await steps.getSnapshot(publishId);
 
     step = "Preparing photographs";
@@ -55,7 +59,7 @@ export async function publish(publishId: string, steps: Steps): Promise<void> {
       lastReport = steps.now();
       const message = `Preparing photographs (${done} of ${total})`;
       steps.log(message);
-      await steps.reportStatus(publishId, { status: "running", message });
+      if (!(await steps.reportStatus(publishId, { status: "running", message }))) throw stopped();
     });
     steps.log(`${plural(result.photographs, "photograph")}, ${result.encoded} newly encoded, ${result.removed.length} files removed`);
 
@@ -67,19 +71,20 @@ export async function publish(publishId: string, steps: Steps): Promise<void> {
       throw new Error(`The library does not reproduce the site yet: ${shown}${more}.`);
     }
 
-    await say("Running the site's tests");
+    if (!(await say("Running the site's tests"))) throw stopped();
     await steps.exec("npm", ["test"]);
 
-    await say("Building the site");
+    if (!(await say("Building the site"))) throw stopped();
     await buildForVercel(steps.exec, target);
 
-    await say("Checking the built site");
+    if (!(await say("Checking the built site"))) throw stopped();
     await steps.exec("npm", ["run", "test:build"]);
     await steps.exec("npx", ["playwright", "install", "chromium"]);
     await steps.exec("npm", ["run", "test:e2e"]);
 
-    await say("Deploying");
+    if (!(await say("Deploying"))) throw stopped();
     const url = await deployPrebuilt(steps.exec, target);
+    deployed = true;
 
     const what = `${plural(result.photographs, "photograph")} in ${plural(result.categories, "category", "categories")}`;
     await steps.reportStatus(
@@ -89,6 +94,12 @@ export async function publish(publishId: string, steps: Steps): Promise<void> {
         : { status: "succeeded", message: `A preview of ${what} is ready.`, url },
     );
   } catch (error) {
+    if (deployed) {
+      // The site (or preview) is live. Saying "Deploying failed" would be false, so
+      // only the log says what went wrong, and the rethrow still fails the workflow.
+      steps.log(`Deployed, but the admin could not be told. ${error instanceof CommandError ? error.publicMessage : error instanceof Error ? error.message : String(error)}`);
+      throw error;
+    }
     // The owner, in the admin, is told everything. The log is public, so it
     // gets only what a quiet command allows.
     const reason = error instanceof Error ? error.message : String(error);
@@ -139,6 +150,15 @@ function library() {
   });
 }
 
+const PUBLISH_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/** The publish's id as the admin writes it; it becomes part of a request path. */
+function publishIdSetting(): string {
+  const value = setting("PUBLISH_ID");
+  if (!PUBLISH_ID.test(value)) throw new Error("PUBLISH_ID is not a publish id.");
+  return value;
+}
+
 async function withWorkDir<T>(action: (workDir: string) => Promise<T>): Promise<T> {
   const workDir = await mkdtemp(path.join(os.tmpdir(), "dh-publish-"));
   try {
@@ -152,7 +172,7 @@ async function main(command: string | undefined): Promise<void> {
   const root = process.cwd();
 
   if (command === "publish") {
-    const publishId = setting("PUBLISH_ID");
+    const publishId = publishIdSetting();
     const lib = library();
     await withWorkDir((workDir) =>
       publish(publishId, {
@@ -185,7 +205,7 @@ async function main(command: string | undefined): Promise<void> {
   if (command === "fail") {
     // The workflow's last step when an earlier one failed or was cancelled.
     // If the publish already reported its own outcome, this changes nothing.
-    const recorded = await library().reportStatus(setting("PUBLISH_ID"), {
+    const recorded = await library().reportStatus(publishIdSetting(), {
       status: "failed",
       message: "The publish stopped before it could say why. See the workflow's log.",
     });

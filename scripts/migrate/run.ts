@@ -32,7 +32,7 @@ async function readOriginals(tmpDir: string): Promise<OriginalFile[]> {
       const contentType = TYPES[path.extname(name).toLowerCase()];
       if (!contentType) continue;
       const file = path.join(ORIGINALS, folder.name, name);
-      const size = await measure(await readable(file, tmpDir));
+      const size = await measure(await readable(file, await mkdtemp(path.join(tmpDir, "p-"))));
       if (!size) throw new Error(`cannot read the dimensions of ${folder.name}/${name}`);
       found.push({ relativePath: `${folder.name}/${name}`, hash: await sha256(file), ...size, contentType });
     }
@@ -50,26 +50,40 @@ const put = (key: string, file: string, contentType: string) =>
 
 async function inBatches<T>(items: T[], action: (item: T, index: number) => Promise<void>): Promise<void> {
   let next = 0;
+  let failed = false;
   const worker = async () => {
-    while (next < items.length) {
+    // Once one item has failed the others stop taking new work; the first error is what rejects.
+    while (!failed && next < items.length) {
       const index = next;
       next += 1;
-      await action(items[index]!, index);
+      try {
+        await action(items[index]!, index);
+      } catch (error) {
+        failed = true;
+        throw error;
+      }
     }
   };
   await Promise.all(Array.from({ length: AT_ONCE }, worker));
 }
 
+async function remoteRows<T>(query: string): Promise<T[]> {
+  const out = await wrangler(["d1", "execute", DATABASE, "--remote", "--json", "--command", query]);
+  return (JSON.parse(out) as { results: T[] }[])[0]!.results;
+}
+
 async function remoteCount(table: string): Promise<number> {
-  const out = await wrangler(["d1", "execute", DATABASE, "--remote", "--json", "--command", `SELECT COUNT(*) AS n FROM ${table}`]);
-  return (JSON.parse(out) as { results: { n: number }[] }[])[0]!.results[0]!.n;
+  return (await remoteRows<{ n: number }>(`SELECT COUNT(*) AS n FROM ${table}`))[0]!.n;
 }
 
 async function apply(plan: MigrationPlan, tmpDir: string): Promise<void> {
-  // The library must be empty: this script only ever fills an empty one.
-  const existing = (await remoteCount("categories")) + (await remoteCount("photos"));
-  if (existing > 0) {
-    throw new Error("The library already holds categories or photographs. Delete them in the admin first; this only fills an empty library.");
+  // The library may hold only what this plan would put there: a run that
+  // stopped after a partial import is finished by running again. Anything
+  // else in it is not this migration's to mix with.
+  const planned = new Set([...plan.categories.map((category) => category.id), ...plan.photos.map((photo) => photo.id)]);
+  const existing = [...(await remoteRows<{ id: string }>("SELECT id FROM categories")), ...(await remoteRows<{ id: string }>("SELECT id FROM photos"))];
+  if (existing.some((row) => !planned.has(row.id))) {
+    throw new Error("The library holds photographs or categories this migration did not plan. Delete them in the admin first.");
   }
 
   let done = 0;
@@ -85,7 +99,7 @@ async function apply(plan: MigrationPlan, tmpDir: string): Promise<void> {
     const source = path.join(ORIGINALS, photo.relativePath);
     await put(photo.originalKey, source, photo.contentType);
     const preview = path.join(tmpDir, `${photo.id}.jpg`);
-    await sharp(await readable(source, tmpDir))
+    await sharp(await readable(source, await mkdtemp(path.join(tmpDir, "p-"))))
       .rotate()
       .resize({ width: PREVIEW_EDGE, height: PREVIEW_EDGE, fit: "inside", withoutEnlargement: true })
       .jpeg({ quality: 85 })

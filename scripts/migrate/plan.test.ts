@@ -130,6 +130,16 @@ describe("planMigration", () => {
     );
   });
 
+  it("stops when two categories use the same folder", () => {
+    const shared: SetContent[] = [
+      sets[0]!,
+      { ...sets[1]!, photos: [{ ...sets[1]!.photos[0]!, source: "Phoenix Zoo/zoo 4.jpg" }] },
+    ];
+    expect(() => planMigration({ originals: [...originals, original("Phoenix Zoo/zoo 4.jpg", "e")], sets: shared, order, manifest })).toThrow(
+      'the folder "Phoenix Zoo" is used by more than one category',
+    );
+  });
+
   it("stops when a published photograph has no manifest entry, or the order and the sets disagree", () => {
     expect(() => planMigration({ originals, sets, order, manifest: {} })).toThrow("phoenix-zoo/tiger: no entry in the manifest");
     expect(() => planMigration({ originals, sets, order: ["phoenix-zoo"], manifest })).toThrow('the set "montreal" is not in the order');
@@ -137,14 +147,20 @@ describe("planMigration", () => {
 });
 
 describe("toSql", () => {
+  it("skips rows that are already there, so a run can be finished by running it again", () => {
+    const lines = toSql(plan(), new Date(Date.UTC(2026, 8, 30, 12))).trim().split("\n");
+    expect(lines).toHaveLength(6);
+    for (const line of lines) expect(line).toMatch(/^INSERT OR IGNORE INTO (categories|photos) /);
+  });
+
   it("writes one insert per category and photograph, with quotes escaped and nulls as NULL", () => {
     const sql = toSql(plan(), new Date(Date.UTC(2026, 8, 30, 12)));
     const lines = sql.trim().split("\n");
-    expect(lines.filter((line) => line.startsWith("INSERT INTO categories"))).toHaveLength(2);
-    expect(lines.filter((line) => line.startsWith("INSERT INTO photos"))).toHaveLength(4);
+    expect(lines.filter((line) => line.startsWith("INSERT OR IGNORE INTO categories"))).toHaveLength(2);
+    expect(lines.filter((line) => line.startsWith("INSERT OR IGNORE INTO photos"))).toHaveLength(4);
     expect(sql).toContain("'A tiger''s rest.'");
     expect(sql).toContain("'Montréal'");
-    expect(sql).toMatch(/INSERT INTO photos .*VALUES \('[0-9a-f-]{36}', '[0-9a-f-]{36}', NULL, '', '', '', 'needs_text', 0, 0, /);
+    expect(sql).toMatch(/INSERT OR IGNORE INTO photos .*VALUES \('[0-9a-f-]{36}', '[0-9a-f-]{36}', NULL, '', '', '', 'needs_text', 0, 0, /);
     expect(sql).toContain("'migration'");
     expect(sql).toContain("'2026-09-30T12:00:00.000Z'");
   });
@@ -152,8 +168,12 @@ describe("toSql", () => {
   it("gives the unshown photographs of a category distinct, increasing times so the admin lists them in a steady order", () => {
     const more = [...originals, original("Phoenix Zoo/zoo 4.jpg", "e")];
     const sql = toSql(planMigration({ originals: more, sets, order, manifest }), new Date(Date.UTC(2026, 8, 30, 12)));
-    const times = [...sql.matchAll(/'needs_text'.*'(2026-[^']+)', '2026-[^']+'\);/g)].map((match) => match[1]);
-    expect(times).toHaveLength(2);
-    expect(new Set(times).size).toBe(2);
+    const pairs = [...sql.matchAll(/'needs_text'.*'(2026-[^']+)', '(2026-[^']+)'\);/g)].map((match) => [match[1], match[2]]);
+    expect(pairs).toHaveLength(2);
+    const created = pairs.map((pair) => pair[0]!);
+    expect(new Set(created).size).toBe(2);
+    expect(created).toEqual([...created].sort());
+    // A photograph is created and last updated at the same moment.
+    for (const [first, second] of pairs) expect(second).toBe(first);
   });
 });

@@ -115,7 +115,6 @@ describe("publish", () => {
     const tracked = { ...s, exec: vi.fn(s.exec) };
     await expect(publish("p1", tracked)).rejects.toThrow("1 test failed");
     expect(tracked.exec.mock.calls.map(([command, args]) => [command, ...args].join(" "))).not.toContain("vercel deploy --prebuilt");
-    expect(commands).toEqual([]);
     expect(reports.at(-1)).toEqual({
       status: "failed",
       message: "Checking the built site failed. 1 test failed: dist/zoo/index.html has no title",
@@ -157,6 +156,52 @@ describe("publish", () => {
     });
     await expect(publish("p1", s)).rejects.toThrow();
     expect(reports.at(-1)!.message.length).toBeLessThanOrEqual(1600);
+  });
+
+  it("stops before anything is built when the admin no longer expects the publish", async () => {
+    const { reports, commands, steps: s } = steps({
+      reportStatus: async (_id, update) => {
+        reports.push(update);
+        return update.message !== "Running the site's tests";
+      },
+    });
+    await expect(publish("p1", s)).rejects.toThrow("The admin no longer expects this publish; stopping without deploying.");
+    expect(commands).toEqual([]);
+    expect(reports.map((report) => report.status)).not.toContain("succeeded");
+    expect(reports.at(-1)!.status).toBe("failed");
+  });
+
+  it("does not even fetch the snapshot when the first report is refused", async () => {
+    const getSnapshot = vi.fn(async () => ({ target: "preview" as const, snapshot }));
+    const { commands, steps: s } = steps({ getSnapshot, reportStatus: async () => false });
+    await expect(publish("p1", s)).rejects.toThrow("The admin no longer expects this publish");
+    expect(getSnapshot).not.toHaveBeenCalled();
+    expect(commands).toEqual([]);
+  });
+
+  it("stops when a progress report is refused", async () => {
+    const { commands, steps: s } = steps({
+      reportStatus: async (_id, update) => !update.message.startsWith("Preparing photographs ("),
+    });
+    await expect(publish("p1", s)).rejects.toThrow("The admin no longer expects this publish");
+    expect(commands).toEqual([]);
+  });
+
+  it("does not report a failure after the site is deployed, even when the outcome cannot be reported", async () => {
+    const reports: StatusUpdate[] = [];
+    const lines: string[] = [];
+    const { steps: s } = steps({
+      log: (line) => lines.push(line),
+      reportStatus: async (_id, update) => {
+        reports.push(update);
+        if (update.status === "succeeded") throw new Error("The library answered 500 to POST /api/service/publishes/p1/status.");
+        return true;
+      },
+    });
+    await expect(publish("p1", s)).rejects.toThrow("The library answered 500");
+    expect(reports.map((report) => report.status)).not.toContain("failed");
+    expect(lines).toContain("Deployed, but the admin could not be told. The library answered 500 to POST /api/service/publishes/p1/status.");
+    expect(lines.join("\n")).not.toContain("Deploying failed");
   });
 
   it("still fails when the failure itself cannot be reported", async () => {

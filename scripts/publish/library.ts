@@ -27,6 +27,8 @@ export class LibraryError extends Error {
   }
 }
 
+const REQUEST_TIMEOUT_MS = 120_000;
+
 export type LibraryConfig = { url: string; clientId: string; clientSecret: string };
 
 /**
@@ -45,6 +47,7 @@ export function createLibrary(config: LibraryConfig, fetchImpl: typeof fetch = f
         method,
         body: init.body,
         redirect: "manual",
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         headers: {
           "CF-Access-Client-Id": config.clientId,
           "CF-Access-Client-Secret": config.clientSecret,
@@ -62,15 +65,27 @@ export function createLibrary(config: LibraryConfig, fetchImpl: typeof fetch = f
     return new LibraryError(response.status, `The library answered ${response.status} to ${method} ${path}.${hint}`);
   }
 
+  /**
+   * Reads a body. A failure is reported without the underlying error, whose
+   * text or cause can carry part of the body or socket details.
+   */
+  async function read<T>(response: Response, method: string, path: string, action: () => Promise<T>): Promise<T> {
+    try {
+      return await action();
+    } catch {
+      throw new LibraryError(response.status, `The library's answer to ${method} ${path} could not be read.`);
+    }
+  }
+
   async function getJson(path: string): Promise<unknown> {
     const response = await request("GET", path);
     if (response.status !== 200) throw refused(response, "GET", path);
-    return response.json();
+    return read(response, "GET", path, () => response.json());
   }
 
   return {
     async getSnapshot(publishId: string): Promise<{ target: Target; snapshot: Snapshot }> {
-      const body = (await getJson(`/api/service/publishes/${publishId}/snapshot`)) as { target?: unknown; snapshot?: unknown };
+      const body = (await getJson(`/api/service/publishes/${encodeURIComponent(publishId)}/snapshot`)) as { target?: unknown; snapshot?: unknown };
       if (body.target !== "preview" && body.target !== "production") {
         throw new Error("The library sent a publish with no target.");
       }
@@ -84,7 +99,7 @@ export function createLibrary(config: LibraryConfig, fetchImpl: typeof fetch = f
 
     /** True when the report was recorded; false when the publish had already finished. */
     async reportStatus(publishId: string, update: StatusUpdate): Promise<boolean> {
-      const path = `/api/service/publishes/${publishId}/status`;
+      const path = `/api/service/publishes/${encodeURIComponent(publishId)}/status`;
       const response = await request("POST", path, {
         body: JSON.stringify({ status: update.status, message: update.message, url: update.url ?? "" }),
         headers: { "content-type": "application/json" },
@@ -99,7 +114,7 @@ export function createLibrary(config: LibraryConfig, fetchImpl: typeof fetch = f
       const response = await request("GET", path);
       if (response.status === 404) return null;
       if (response.status !== 200) throw refused(response, "GET", path);
-      return Buffer.from(await response.arrayBuffer());
+      return read(response, "GET", path, async () => Buffer.from(await response.arrayBuffer()));
     },
 
     async putDerived(hash: string, file: string, body: Buffer): Promise<void> {
@@ -111,10 +126,11 @@ export function createLibrary(config: LibraryConfig, fetchImpl: typeof fetch = f
     originalsFor(publishId: string): OriginalSource {
       return {
         async downloadOriginal(hash: string, toFile: string): Promise<void> {
-          const path = `/api/service/publishes/${publishId}/originals/${hash}`;
+          const path = `/api/service/publishes/${encodeURIComponent(publishId)}/originals/${hash}`;
           const response = await request("GET", path);
           if (response.status !== 200 || !response.body) throw refused(response, "GET", path);
-          await pipeline(Readable.fromWeb(response.body as unknown as WebReadableStream), createWriteStream(toFile));
+          const body = response.body as unknown as WebReadableStream;
+          await read(response, "GET", path, () => pipeline(Readable.fromWeb(body), createWriteStream(toFile)));
         },
       };
     },

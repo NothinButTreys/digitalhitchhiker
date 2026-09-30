@@ -33,7 +33,6 @@ const manifestEntrySchema = z
 
 const manifestSchema = z.record(z.string(), manifestEntrySchema);
 
-
 export type PhotoContent = z.infer<typeof photoContentSchema>;
 export type SetContent = z.infer<typeof setContentSchema>;
 export type ManifestEntry = z.infer<typeof manifestEntrySchema>;

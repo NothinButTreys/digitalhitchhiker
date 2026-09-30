@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { parseSetOrder } from "./schema";
 import { SITE } from "./site";
 
 describe("SITE", () => {
@@ -10,6 +11,7 @@ describe("SITE", () => {
   it("takes the order of the sets from the content folder", () => {
     const order = JSON.parse(readFileSync("content/set-order.json", "utf8")) as string[];
     expect(order.length).toBeGreaterThan(0);
+    expect(() => parseSetOrder(order)).not.toThrow();
     expect(SITE.setOrder).toEqual(order);
     expect(new Set(SITE.setOrder).size).toBe(SITE.setOrder.length);
   });

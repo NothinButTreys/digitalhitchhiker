@@ -96,6 +96,35 @@ describe("createLibrary", () => {
     expect((error as Error).message).not.toContain("s3cret");
   });
 
+  it("encodes a publish id that would otherwise change the path", async () => {
+    const fetch = vi.fn(async (..._args: unknown[]) => json({ target: "preview", snapshot }));
+    const library = createLibrary(config, fetch as unknown as typeof globalThis.fetch);
+    await library.getSnapshot("../x/y");
+    expect(fetch.mock.calls[0]![0]).toBe("https://admin.example/api/service/publishes/..%2Fx%2Fy/snapshot");
+    await library.reportStatus("a/b", { status: "running", message: "m" }).catch(() => undefined);
+    expect(fetch.mock.calls[1]![0]).toBe("https://admin.example/api/service/publishes/a%2Fb/status");
+    await library.originalsFor("a/b").downloadOriginal(HASH, "/nonexistent/never-written").catch(() => undefined);
+    expect(fetch.mock.calls[2]![0]).toBe(`https://admin.example/api/service/publishes/a%2Fb/originals/${HASH}`);
+  });
+
+  it("gives every request a time limit", async () => {
+    const fetch = vi.fn(async (..._args: unknown[]) => json({ snapshot }));
+    await createLibrary(config, fetch as unknown as typeof globalThis.fetch).getPublished();
+    expect((fetch.mock.calls[0]![1] as RequestInit).signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("says only that an answer could not be read, never what it held", async () => {
+    const library = createLibrary(
+      config,
+      (async () => new Response("<html>secret-body-text s3cret</html>", { status: 200 })) as unknown as typeof fetch,
+    );
+    const error = await library.getPublished().catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(LibraryError);
+    expect((error as LibraryError).status).toBe(200);
+    expect((error as Error).message).toBe("The library's answer to GET /api/service/published could not be read.");
+    expect((error as Error).cause).toBeUndefined();
+  });
+
   it("says so when the library cannot be reached, without its address", async () => {
     const library = createLibrary(config, (async () => {
       throw new TypeError("fetch failed: getaddrinfo ENOTFOUND admin.example");

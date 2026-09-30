@@ -19,6 +19,11 @@ const sources = readdirSync("content/sets")
     };
     return set.photos.map((photo) => photo.source);
   });
+const sets = readdirSync("content/sets")
+  .filter((name) => name.endsWith(".json"))
+  .map((name) => JSON.parse(readFileSync(path.join("content/sets", name), "utf8")) as { photos: unknown[] });
+// One page per set, one per photograph, and the colophon; the root and 404 are not listed.
+const expectedRoutes = sets.length + sets.reduce((total, set) => total + set.photos.length, 0) + 1;
 const order = JSON.parse(readFileSync("content/set-order.json", "utf8")) as string[];
 const firstSet = order[0]!;
 const content = JSON.parse(readFileSync(`content/sets/${firstSet}.json`, "utf8")) as {
@@ -46,7 +51,7 @@ describe("prerendered site", () => {
     const locs = [...readFileSync("dist/sitemap.xml", "utf8").matchAll(/<loc>([^<]+)<\/loc>/g)].map(
       (match) => match[1]!.replace("https://digitalhitchhiker.photography", ""),
     );
-    expect(routes.length).toBeGreaterThanOrEqual(3);
+    expect(routes.length).toBe(expectedRoutes);
     expect([...locs].sort()).toEqual([...routes].sort());
     expect(readFileSync("dist/robots.txt", "utf8")).toContain("Allow: /");
   });

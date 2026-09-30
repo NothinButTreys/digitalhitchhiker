@@ -46,14 +46,18 @@ jobs:
       DH_SKIP_INSTALL: "1"
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
-      - run: npm install --global vercel@latest
+      - id: install
+        run: npm ci
+      # Pinned to the current major so a new one cannot change a publish unseen.
+      - run: npm install --global vercel@61
       - name: Publish
         run: npm run publish:run
       - name: Report a publish that stopped without saying why
-        if: ${{ failure() || cancelled() }}
+        if: ${{ (failure() || cancelled()) && steps.install.outcome == 'success' }}
         run: npx tsx scripts/publish/run.ts fail

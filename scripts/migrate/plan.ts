@@ -64,7 +64,10 @@ export function planMigration(input: { originals: OriginalFile[]; sets: SetConte
     categories.push({ id, slug: set.slug, title: set.title, place: set.place, description: set.description, position });
     for (const photo of set.photos) {
       if (!photo.source) throw new Error(`${set.slug}/${photo.slug}: no original is recorded for it`);
-      folderToCategory.set(folderOf(photo.source), id);
+      const folder = folderOf(photo.source);
+      const owner = folderToCategory.get(folder);
+      if (owner !== undefined && owner !== id) throw new Error(`the folder "${folder}" is used by more than one category`);
+      folderToCategory.set(folder, id);
     }
   }
   categories.sort((a, b) => a.position - b.position);
@@ -137,13 +140,17 @@ const q = (value: string | number | null): string => {
   return `'${value.replaceAll("'", "''")}'`;
 };
 
-/** The inserts for the library's database, one statement per line. */
+/**
+ * The inserts for the library's database, one statement per line. They skip
+ * a row that is already there (ids come from hashes), so a run that stopped
+ * after a partial import can be run again to finish it.
+ */
 export function toSql(plan: MigrationPlan, now: Date): string {
   const at = now.toISOString();
   const lines: string[] = [];
   for (const category of plan.categories) {
     lines.push(
-      `INSERT INTO categories (id, slug, title, place, description, position, hidden, created_at, updated_at) VALUES (${[
+      `INSERT OR IGNORE INTO categories (id, slug, title, place, description, position, hidden, created_at, updated_at) VALUES (${[
         q(category.id), q(category.slug), q(category.title), q(category.place), q(category.description), q(category.position), 0, q(at), q(at),
       ].join(", ")});`,
     );
@@ -153,10 +160,10 @@ export function toSql(plan: MigrationPlan, now: Date): string {
     // order in the admin (it lists those by when they were added).
     const created = new Date(now.getTime() + index * 1000).toISOString();
     lines.push(
-      `INSERT INTO photos (id, category_id, slug, title, alt, description, text_status, selected, position, original_key, preview_key, original_name, content_type, content_hash, width, height, source, created_at, updated_at) VALUES (${[
+      `INSERT OR IGNORE INTO photos (id, category_id, slug, title, alt, description, text_status, selected, position, original_key, preview_key, original_name, content_type, content_hash, width, height, source, created_at, updated_at) VALUES (${[
         q(photo.id), q(photo.categoryId), q(photo.slug), q(photo.title), q(photo.alt), q(photo.description), q(photo.textStatus),
         photo.selected, photo.position, q(photo.originalKey), q(photo.previewKey), q(photo.originalName), q(photo.contentType),
-        q(photo.contentHash), photo.width, photo.height, q("migration"), q(created), q(at),
+        q(photo.contentHash), photo.width, photo.height, q("migration"), q(created), q(created),
       ].join(", ")});`,
     );
   });
