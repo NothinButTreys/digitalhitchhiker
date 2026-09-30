@@ -6,3 +6,13 @@ playwright-report
 .vercel
 .superpowers
 .DS_Store
+
+admin/node_modules
+admin/dist
+admin/.wrangler
+admin/.dev.vars
+admin/ui/.env
+admin/ui/.env.*
+admin/test-results
+admin/playwright-report
+admin/e2e/fixtures/out

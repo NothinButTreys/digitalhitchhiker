@@ -1,0 +1,3 @@
+ENVIRONMENT=development
+AUTH_MODE=dev
+OWNER_EMAIL=owner@example.com
