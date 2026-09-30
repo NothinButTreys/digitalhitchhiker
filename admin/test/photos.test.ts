@@ -1,6 +1,6 @@
 import { env } from "cloudflare:test";
 import { Hono } from "hono";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppEnv } from "../src/env";
 import { ApiError } from "../src/lib/errors";
 import { renumberStatements } from "../src/db/photos";
@@ -459,6 +459,37 @@ describe("deleting", () => {
 
   it("returns 404 for an unknown id", async () => {
     expect((await api("/api/photos/nope", { method: "DELETE" })).status).toBe(404);
+  });
+
+  describe("when a generated file lands after the delete has listed the prefix", () => {
+    afterEach(() => vi.restoreAllMocks());
+
+    it("still removes that file", async () => {
+      const category = await seedCategory();
+      const id = await seedPhoto(category.id, approved);
+      const prefix = `derived/hash-${id}/`;
+      await env.BUCKET.put(`${prefix}640.jpg`, "x");
+
+      // The object lands after the first listing of the prefix was taken, as a
+      // PUT that passed its ownership check would land it mid-delete.
+      const realList = env.BUCKET.list.bind(env.BUCKET);
+      let landed = false;
+      vi.spyOn(env.BUCKET, "list").mockImplementation((async (options?: R2ListOptions) => {
+        const listed = await realList(options);
+        if (!landed && options?.prefix === prefix) {
+          landed = true;
+          await env.BUCKET.put(`${prefix}640.avif`, "late");
+        }
+        return listed;
+      }) as typeof env.BUCKET.list);
+
+      expect((await api(`/api/photos/${id}`, { method: "DELETE" })).status).toBe(204);
+
+      expect(landed).toBe(true);
+      expect(await env.DB.prepare("SELECT 1 FROM photos WHERE id = ?").bind(id).first()).toBeNull();
+      expect(await env.BUCKET.head(`${prefix}640.avif`)).toBeNull();
+      expect(await env.BUCKET.head(`${prefix}640.jpg`)).toBeNull();
+    });
   });
 });
 

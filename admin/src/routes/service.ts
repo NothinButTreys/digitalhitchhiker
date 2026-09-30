@@ -28,6 +28,11 @@ function derivedKey(hash: string, file: string): { key: string; contentType: str
   return { key: `derived/${hash}/${file}`, contentType: TYPES[file.split(".").pop()!]! };
 }
 
+/** Whether some photograph has this content hash: generated files belong to one. */
+async function photographExists(db: D1Database, hash: string): Promise<boolean> {
+  return (await db.prepare("SELECT 1 FROM photos WHERE content_hash = ?").bind(hash).first()) !== null;
+}
+
 /**
  * Everything the publish workflow may do, and nothing else: read the
  * snapshot of the publish it was started for, report on it, fetch the
@@ -75,7 +80,9 @@ service.get("/publishes/:id/originals/:hash", async (c) => {
 });
 
 service.get("/derived/:hash/:file", async (c) => {
-  const { key, contentType } = derivedKey(c.req.param("hash"), c.req.param("file"));
+  const hash = c.req.param("hash");
+  const { key, contentType } = derivedKey(hash, c.req.param("file"));
+  if (!(await photographExists(c.env.DB, hash))) throw notFound("file");
   const object = await c.env.BUCKET.get(key);
   if (!object) throw notFound("file");
   return new Response(object.body, {
@@ -95,15 +102,15 @@ service.put("/derived/:hash/:file", async (c) => {
   if (length === null || length === 0 || !c.req.raw.body) throw badRequest("invalid", "Send the file with its length.");
   if (length > MAX_DERIVED_BYTES) throw new ApiError(413, "too_large", "The file is larger than 40 MB.");
 
-  const owner = () => c.env.DB.prepare("SELECT 1 FROM photos WHERE content_hash = ?").bind(hash).first();
-  if (!(await owner())) throw notFound("photograph");
+  if (!(await photographExists(c.env.DB, hash))) throw notFound("photograph");
 
   await putStreamed(c.env.BUCKET, c.executionCtx, key, c.req.raw.body, length, { httpMetadata: { contentType } });
 
-  // Whoever removes a photograph's row removes its files. If the photograph
-  // was deleted while this file was on its way, that delete may have run
-  // before the file landed, so the file is removed here rather than orphaned.
-  if (!(await owner())) {
+  // This removes a file stored after the photograph's row was removed. A file
+  // stored while a delete is still in progress (row not yet removed) is removed
+  // by that delete's final sweep of `derived/<hash>/`, which runs after the row
+  // is gone.
+  if (!(await photographExists(c.env.DB, hash))) {
     await c.env.BUCKET.delete(key);
     throw notFound("photograph");
   }

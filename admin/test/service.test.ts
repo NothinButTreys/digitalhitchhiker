@@ -125,6 +125,15 @@ describe("derived files", () => {
     expect((await env.BUCKET.head(`derived/${HASH}/640.avif`))?.size).toBe(10);
   });
 
+  it("does not serve a file whose photograph is gone", async () => {
+    const { photoId } = await seedPublish();
+    expect((await put(HASH, "640.avif", "avif-bytes")).status).toBe(204);
+    expect((await service(`/api/service/derived/${HASH}/640.avif`)).status).toBe(200);
+    await env.DB.prepare("DELETE FROM photos WHERE id = ?").bind(photoId).run();
+    expect(await env.BUCKET.head(`derived/${HASH}/640.avif`)).not.toBeNull();
+    expect((await service(`/api/service/derived/${HASH}/640.avif`)).status).toBe(404);
+  });
+
   it("refuses a file for a hash that no photograph has", async () => {
     await seedPublish();
     expect((await put(OTHER_HASH, "640.avif", "x")).status).toBe(404);
