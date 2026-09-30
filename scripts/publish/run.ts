@@ -3,13 +3,20 @@ import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { SITE } from "../../src/data/site";
 import { encodeOriginal } from "../lib/encode";
 import { compareToCommitted } from "./compare";
 import { CommandError, buildForVercel, deployPrebuilt, type Exec } from "./deploy";
 import { createLibrary, type StatusUpdate, type Target } from "./library";
 import { materialize, type MaterializeResult } from "./materialize";
 import type { Snapshot } from "./snapshot";
+
+/**
+ * Where the site lives. Written here rather than read from src/data/site.ts:
+ * that module loads content/set-order.json, which a publish's checkout does
+ * not have until this very script has written it. Nothing under scripts/publish
+ * may import the site's content; a test enforces it.
+ */
+export const SITE_ORIGIN = "https://digitalhitchhiker.photography";
 
 /** Everything `publish` does to the outside world, so that a test can stand in for all of it. */
 export type Steps = {
@@ -87,12 +94,15 @@ export async function publish(publishId: string, steps: Steps): Promise<void> {
     deployed = true;
 
     const what = `${plural(result.photographs, "photograph")} in ${plural(result.categories, "category", "categories")}`;
-    await steps.reportStatus(
+    const recorded = await steps.reportStatus(
       publishId,
       target === "production"
         ? { status: "succeeded", message: `Published ${what}.`, url: steps.siteOrigin }
         : { status: "succeeded", message: `A preview of ${what} is ready.`, url },
     );
+    // A refused final report means the admin gave up on this publish while the
+    // deploy was under way. The site is live all the same; say so plainly.
+    if (!recorded) steps.log("Deployed, but the admin had already given up on this publish.");
   } catch (error) {
     if (deployed) {
       // The site (or preview) is live. Saying "Deploying failed" would be false, so
@@ -184,7 +194,7 @@ async function main(command: string | undefined): Promise<void> {
         exec,
         log: (line) => console.log(line),
         now: () => Date.now(),
-        siteOrigin: SITE.origin,
+        siteOrigin: SITE_ORIGIN,
       }),
     );
     return;

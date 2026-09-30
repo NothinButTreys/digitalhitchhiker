@@ -34,12 +34,6 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 120
     env:
-      LIBRARY_URL: ${{ secrets.LIBRARY_URL }}
-      LIBRARY_CLIENT_ID: ${{ secrets.LIBRARY_CLIENT_ID }}
-      LIBRARY_CLIENT_SECRET: ${{ secrets.LIBRARY_CLIENT_SECRET }}
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
       # Passed through the environment, never pasted into a command.
       PUBLISH_ID: ${{ inputs.publish_id }}
       # Dependencies are installed once, below; `vercel build` must not reinstall them.
@@ -56,8 +50,21 @@ jobs:
         run: npm ci
       # Pinned to the current major so a new one cannot change a publish unseen.
       - run: npm install --global vercel@61
+      # The secrets are given only to the two steps that need them, not to
+      # the install steps and whatever their packages' scripts run.
       - name: Publish
+        env:
+          LIBRARY_URL: ${{ secrets.LIBRARY_URL }}
+          LIBRARY_CLIENT_ID: ${{ secrets.LIBRARY_CLIENT_ID }}
+          LIBRARY_CLIENT_SECRET: ${{ secrets.LIBRARY_CLIENT_SECRET }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: npm run publish:run
       - name: Report a publish that stopped without saying why
         if: ${{ (failure() || cancelled()) && steps.install.outcome == 'success' }}
+        env:
+          LIBRARY_URL: ${{ secrets.LIBRARY_URL }}
+          LIBRARY_CLIENT_ID: ${{ secrets.LIBRARY_CLIENT_ID }}
+          LIBRARY_CLIENT_SECRET: ${{ secrets.LIBRARY_CLIENT_SECRET }}
         run: npx tsx scripts/publish/run.ts fail

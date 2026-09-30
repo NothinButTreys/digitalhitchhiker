@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { CommandError } from "./deploy";
 import type { StatusUpdate } from "./library";
-import { publish, type Steps } from "./run";
+import { SITE_ORIGIN, publish, type Steps } from "./run";
+import { SITE } from "../../src/data/site";
+import { readFileSync, readdirSync } from "node:fs";
+import path from "node:path";
 import type { Snapshot } from "./snapshot";
 
 const snapshot = { version: 1, categories: [] } as unknown as Snapshot;
@@ -215,5 +218,36 @@ describe("publish", () => {
       },
     });
     await expect(publish("p1", s)).rejects.toThrow("The library answered 500");
+  });
+});
+
+describe("the publish scripts and the site's content", () => {
+  it("name the same site", () => {
+    expect(SITE_ORIGIN).toBe(SITE.origin);
+  });
+
+  // A publish's checkout has no content until these scripts have written it,
+  // so none of them may load it, directly or through src/data/site.ts.
+  it("never import the site's content, which does not exist until they have written it", () => {
+    const folders = ["scripts/publish", "scripts/lib", "scripts/migrate"];
+    const offenders: string[] = [];
+    for (const folder of folders) {
+      for (const name of readdirSync(folder)) {
+        if (!name.endsWith(".ts") || name.endsWith(".test.ts")) continue;
+        const text = readFileSync(path.join(folder, name), "utf8");
+        if (/from "[^"]*(?:src\/data\/site|content\/[^"]*\.json)"/.test(text)) offenders.push(`${folder}/${name}`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it("logs when the admin had already given up by the time the deploy finished", async () => {
+    const lines: string[] = [];
+    const { steps: s } = steps({
+      log: (line) => lines.push(line),
+      reportStatus: async (_id, update) => update.status !== "succeeded",
+    });
+    await publish("p1", s);
+    expect(lines).toContain("Deployed, but the admin had already given up on this publish.");
   });
 });

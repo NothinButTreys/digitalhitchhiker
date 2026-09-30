@@ -94,7 +94,8 @@ The workflow needs these repository secrets: `LIBRARY_URL`,
 `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`.
 
 To work on the site locally with the published photographs, set the three
-`LIBRARY_*` values in your shell and run `npm run library:pull`.
+`LIBRARY_*` values in your shell (the admin accepts one service token, so
+these are the workflow's own) and run `npm run library:pull`.
 
 ## Deployment
 
