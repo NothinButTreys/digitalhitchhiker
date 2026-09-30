@@ -35,3 +35,24 @@ export type PhotoOut = {
 export type CategoryInput = { title: string; place: string; description: string; slug?: string };
 export type CategoryPatch = Partial<{ title: string; place: string; description: string; hidden: boolean }>;
 
+
+export type PublishTarget = "preview" | "production";
+
+export type PublishOut = {
+  id: string;
+  target: PublishTarget;
+  status: "queued" | "running" | "succeeded" | "failed";
+  message: string;
+  url: string;
+  startedAt: string;
+  updatedAt: string;
+  finishedAt: string | null;
+};
+
+export type PublishState = {
+  latest: PublishOut | null;
+  published: { finishedAt: string } | null;
+  unpublishedChanges: boolean;
+  problems: string[];
+  summary: { categories: number; photographs: number };
+};

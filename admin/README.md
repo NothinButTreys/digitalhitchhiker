@@ -43,6 +43,30 @@ to screen readers. The same moves are also offered as plain buttons in the
 photograph editor and the category details dialog, for anyone who cannot or
 would rather not drag.
 
+## Publishing
+
+Nothing done in the admin reaches the site until Publish is pressed. The
+button in the header shows a dot when the library has changes the site does
+not have. Its dialog says what would go out and offers two things: a
+preview, which builds the site at a private Vercel address to look at
+first, and publishing to the live site.
+
+Pressing either records a publish, works out exactly what it will show (the
+snapshot), and starts the `Publish` workflow in the site's repository. The
+workflow reports back as it goes; if it goes silent for thirty minutes the
+publish is marked as failed. Only one publish runs at a time.
+
+The workflow reaches the admin with a Cloudflare Access service token and
+may call only the endpoints under `/api/service/`: read the snapshot of the
+publish it was started for, report on it, fetch the originals that publish
+names, and read and fill the cache of generated images (`derived/<hash>/`
+in the bucket).
+
+Besides the identity settings below, publishing needs one more Worker
+secret, `GITHUB_DISPATCH_TOKEN`: a GitHub token that may start workflows on
+the site's repository. `SERVICE_TOKEN_CLIENT_ID` must be the client ID of
+the service token the workflow uses.
+
 ## Signing in locally
 
 Locally there is no Cloudflare Access. `.dev.vars` sets `AUTH_MODE=dev` and
@@ -71,7 +95,7 @@ build, whatever it sets `VITE_DEV_EMAIL` or `NODE_ENV` to.
 
 ## Identity settings
 
-These four are Worker secrets, not entries in `wrangler.jsonc`:
+These five are Worker secrets, not entries in `wrangler.jsonc`:
 
 | Name | What it is |
 |---|---|
@@ -79,6 +103,7 @@ These four are Worker secrets, not entries in `wrangler.jsonc`:
 | `ACCESS_TEAM_DOMAIN` | The Cloudflare Access team domain, `<team>.cloudflareaccess.com` |
 | `ACCESS_AUD` | The Access application's audience (AUD) tag |
 | `SERVICE_TOKEN_CLIENT_ID` | The client ID of an Access service token allowed to call the API, if any |
+| `GITHUB_DISPATCH_TOKEN` | A GitHub token allowed to start the publish workflow |
 
 Set each one, typing the value at the prompt:
 
@@ -87,6 +112,7 @@ npx wrangler secret put OWNER_EMAIL
 npx wrangler secret put ACCESS_TEAM_DOMAIN
 npx wrangler secret put ACCESS_AUD
 npx wrangler secret put SERVICE_TOKEN_CLIENT_ID
+npx wrangler secret put GITHUB_DISPATCH_TOKEN
 ```
 
 Do not add them to `vars` in `wrangler.jsonc`: a var and a secret share one

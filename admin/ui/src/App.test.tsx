@@ -31,7 +31,7 @@ describe("App", () => {
     const listPhotos = vi.fn((categoryId: string) =>
       categoryId === "zoo" ? Promise.resolve([tiger]) : new Promise<PhotoOut[]>((resolve) => (releaseRiver = resolve)),
     );
-    const api = { listCategories: vi.fn(async () => [zoo, river]), listPhotos } as unknown as Api;
+    const api = { publishState: vi.fn(async () => ({ latest: null, published: null, unpublishedChanges: false, problems: [], summary: { categories: 0, photographs: 0 } })), listCategories: vi.fn(async () => [zoo, river]), listPhotos } as unknown as Api;
     render(
       <MemoryRouter initialEntries={["/c/zoo"]}>
         <App api={api} />
@@ -55,7 +55,7 @@ describe("App", () => {
   });
 
   it("links to every category from every screen and marks the current one", async () => {
-    const api = { listCategories: vi.fn(async () => [zoo, river]), listPhotos: vi.fn(async () => [tiger]) } as unknown as Api;
+    const api = { publishState: vi.fn(async () => ({ latest: null, published: null, unpublishedChanges: false, problems: [], summary: { categories: 0, photographs: 0 } })), listCategories: vi.fn(async () => [zoo, river]), listPhotos: vi.fn(async () => [tiger]) } as unknown as Api;
     render(
       <MemoryRouter initialEntries={["/c/zoo"]}>
         <App api={api} />
@@ -76,6 +76,7 @@ describe("App", () => {
     // After the first load the list never answers again, so the new category
     // can only be known because creating it added it to the list.
     const api = {
+      publishState: vi.fn(async () => ({ latest: null, published: null, unpublishedChanges: false, problems: [], summary: { categories: 0, photographs: 0 } })),
       listCategories: vi.fn().mockResolvedValueOnce([zoo, river]).mockReturnValue(new Promise(() => {})),
       listPhotos: vi.fn(async (categoryId: string) => (categoryId === "zoo" ? [tiger] : [])),
       createCategory,
@@ -105,6 +106,7 @@ describe("App", () => {
   it("creates a category from the library screen and goes straight into it", async () => {
     const lakes = { id: "lakes", title: "Forest Lakes", place: "Arizona", hidden: false } as CategoryOut;
     const api = {
+      publishState: vi.fn(async () => ({ latest: null, published: null, unpublishedChanges: false, problems: [], summary: { categories: 0, photographs: 0 } })),
       listCategories: vi.fn().mockResolvedValueOnce([zoo, river]).mockReturnValue(new Promise(() => {})),
       listPhotos: vi.fn(async () => []),
       createCategory: vi.fn(async () => lakes),
@@ -129,7 +131,7 @@ describe("App", () => {
   });
 
   it("shows no navigation until there is a category to go to", async () => {
-    const api = { listCategories: vi.fn(async () => []) } as unknown as Api;
+    const api = { publishState: vi.fn(async () => ({ latest: null, published: null, unpublishedChanges: false, problems: [], summary: { categories: 0, photographs: 0 } })), listCategories: vi.fn(async () => []) } as unknown as Api;
     render(
       <MemoryRouter>
         <App api={api} />

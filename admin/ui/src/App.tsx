@@ -4,6 +4,7 @@ import type { Api } from "./api";
 import { CategoryDialog } from "./components/CategoryDialog";
 import { PlusIcon } from "./components/icons";
 import { Mark } from "./components/Mark";
+import { PublishPanel } from "./components/PublishPanel";
 import { LibraryProvider, useLibrary } from "./library";
 import { CategoriesScreen } from "./screens/CategoriesScreen";
 import { CategoryScreen } from "./screens/CategoryScreen";
@@ -89,6 +90,7 @@ export function App({ api }: { api: Api }) {
             <Mark />
             Digital Hitchhiker · Library
           </Link>
+          <PublishPanel api={api} />
         </header>
         <CategoryNav api={api} />
         <main>

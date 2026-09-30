@@ -220,4 +220,19 @@ describe("api client", () => {
     expect(failure).toMatchObject({ status: 400, code: "hash_mismatch" });
     expect(fetchImpl).toHaveBeenCalledTimes(4);
   });
+
+  it("asks for the publish state and starts a publish", async () => {
+    const calls: Array<[string, RequestInit]> = [];
+    const fetchImpl = (async (url: string, init: RequestInit) => {
+      calls.push([url, init]);
+      return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json" } });
+    }) as unknown as typeof fetch;
+    const api = createApi(fetchImpl);
+    await api.publishState();
+    await api.startPublish("preview");
+    expect(calls[0]![0]).toBe("/api/publishes/state");
+    expect(calls[1]![0]).toBe("/api/publishes");
+    expect(calls[1]![1].method).toBe("POST");
+    expect(JSON.parse(calls[1]![1].body as string)).toEqual({ target: "preview" });
+  });
 });
