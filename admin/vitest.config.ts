@@ -13,6 +13,7 @@ export default defineConfig(async () => {
             ENVIRONMENT: "test",
             AUTH_MODE: "dev",
             OWNER_EMAIL: "owner@example.com",
+            SERVICE_TOKEN_CLIENT_ID: "publish-workflow.access",
             TEST_MIGRATIONS: migrations,
           },
         },

@@ -4,6 +4,7 @@ import { requireIdentity, requireOwner } from "./lib/auth";
 import { ApiError } from "./lib/errors";
 import { categories } from "./routes/categories";
 import { categoryPhotos, photos } from "./routes/photos";
+import { service } from "./routes/service";
 import { cleanUpStaleUploads, uploads } from "./routes/uploads";
 
 const app = new Hono<AppEnv>();
@@ -13,6 +14,10 @@ app.get("/api/health", (c) => c.json({ ok: true, service: "digital-hitchhiker-ad
 app.use("/api/*", requireIdentity);
 
 app.get("/api/me", (c) => c.json(c.get("identity")));
+
+// Mounted before the owner's router and with its own gate: a service
+// identity reaches only these, and the owner reaches none of them.
+app.route("/api/service", service);
 
 const owner = new Hono<AppEnv>();
 owner.use("*", requireOwner);
