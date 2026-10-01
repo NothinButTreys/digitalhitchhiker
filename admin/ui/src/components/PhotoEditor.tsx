@@ -26,6 +26,8 @@ type Props = {
   onRemoved: (id: string, how: "deleted" | "moved") => void;
   /** Told whenever the typed text starts or stops differing from what is saved. */
   onDirty?: (dirty: boolean) => void;
+  /** Told whenever something the editor started (a save, a move, a delete) begins or ends. */
+  onBusy?: (busy: boolean) => void;
   onClose: () => void;
 };
 
@@ -37,7 +39,7 @@ type Props = {
  * use: another can be opened, ticked or dragged while it is open. On a
  * small screen it is a dialog over the page, and the page waits behind it.
  */
-export function PhotoEditor({ api, photo, categories, intent, order, onChange, onRemoved, onDirty, onClose }: Props) {
+export function PhotoEditor({ api, photo, categories, intent, order, onChange, onRemoved, onDirty, onBusy, onClose }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const title = useRef<HTMLInputElement>(null);
@@ -55,6 +57,13 @@ export function PhotoEditor({ api, photo, categories, intent, order, onChange, o
   useEffect(() => {
     onDirty?.(dirty);
   }, [dirty, onDirty]);
+  useEffect(() => {
+    onBusy?.(busy);
+  }, [busy, onBusy]);
+  // What the editor was opened for can change while it is open (a docked
+  // panel's photograph can be ticked from its tile), so a save asks afresh.
+  const latestIntent = useRef(intent);
+  latestIntent.current = intent;
 
   // While the panel is docked the page makes room for it, so nothing is hidden behind it.
   useEffect(() => {
@@ -110,7 +119,7 @@ export function PhotoEditor({ api, photo, categories, intent, order, onChange, o
     if (busy) return;
     return run(async () => {
       const saved = await api.saveText(photo.id, text);
-      onChange(saved, { andShow: intent === "show" && dialog.current?.open === true });
+      onChange(saved, { andShow: latestIntent.current === "show" && dialog.current?.open === true });
       dialog.current?.close();
     });
   };

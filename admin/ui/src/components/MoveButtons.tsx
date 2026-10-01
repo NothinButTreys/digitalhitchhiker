@@ -44,8 +44,9 @@ export function MoveButtons({ order, where, earlier, later }: Props) {
 
   return (
     <div className="order-row">
-      {/* Read out when it changes: while a dialog is open the screen behind
-          it is inert, so this is where a move is confirmed. */}
+      {/* Read out when it changes: where the editor is a dialog over the
+          page, the page behind it is inert, so this is where a move is
+          confirmed. */}
       <p role="status">
         Position {order.index + 1} of {order.count} {where}
       </p>

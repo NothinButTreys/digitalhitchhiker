@@ -40,7 +40,7 @@ const categories = [
   { id: "river", title: "Salt River" },
 ] as CategoryOut[];
 
-type Extra = Partial<Pick<Parameters<typeof PhotoEditor>[0], "intent" | "order" | "categories" | "onDirty">>;
+type Extra = Partial<Pick<Parameters<typeof PhotoEditor>[0], "intent" | "order" | "categories" | "onDirty" | "onBusy">>;
 
 function setup(current: PhotoOut, api: Partial<Api> = {}, extra: Extra = {}) {
   const onChange = vi.fn();
@@ -309,11 +309,61 @@ describe("PhotoEditor", () => {
       fireEvent.pointerMove(handle(), { clientX: 60, clientY: 120 });
       expect(preview()).toBe("left");
       fireEvent.pointerUp(handle(), { clientX: 60, clientY: 120 });
-      // The click a browser sends as the drag is let go.
-      fireEvent.click(handle());
+      // The click a browser sends as a mouse's drag is let go.
+      fireEvent.click(handle(), { detail: 1 });
       expect(preview()).toBeNull();
       expect(dialog.getAttribute("data-dock")).toBe("left");
       expect(window.localStorage.getItem("dh:editor-dock")).toBe("left");
+    });
+
+    it("still answers a press after a finger's drag, which sends no click of its own", async () => {
+      wideScreen();
+      setup(photo());
+      const dialog = screen.getByRole("dialog");
+      fireEvent.pointerDown(handle(), { button: 0, clientX: 900, clientY: 80 });
+      fireEvent.pointerMove(handle(), { clientX: 60, clientY: 120 });
+      fireEvent.pointerUp(handle(), { clientX: 60, clientY: 120 });
+      expect(dialog.getAttribute("data-dock")).toBe("left");
+      // A press from the keyboard or a screen reader, straight away: always a press.
+      fireEvent.click(handle(), { detail: 0 });
+      expect(dialog.getAttribute("data-dock")).toBe("right");
+
+      fireEvent.pointerDown(handle(), { button: 0, clientX: 900, clientY: 80 });
+      fireEvent.pointerMove(handle(), { clientX: 500, clientY: window.innerHeight - 10 });
+      fireEvent.pointerUp(handle(), { clientX: 500, clientY: window.innerHeight - 10 });
+      expect(dialog.getAttribute("data-dock")).toBe("bottom");
+      // A moment later, a tap with a finger is a press too.
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      fireEvent.click(handle(), { detail: 1 });
+      expect(dialog.getAttribute("data-dock")).toBe("left");
+    });
+
+    it("gives focus back to what opened it when it closes, which a browser does not do for a docked panel", async () => {
+      wideScreen();
+      const opener = document.createElement("button");
+      document.body.append(opener);
+      opener.focus();
+      try {
+        setup(photo());
+        expect(document.activeElement).toBe(screen.getByLabelText("Title"));
+        await userEvent.click(screen.getByRole("button", { name: "Close" }));
+        expect(document.activeElement).toBe(opener);
+      } finally {
+        opener.remove();
+      }
+    });
+
+    it("says when something it started begins and ends", async () => {
+      wideScreen();
+      let finish!: (saved: PhotoOut) => void;
+      const saveText = vi.fn(() => new Promise<PhotoOut>((resolve) => (finish = resolve)));
+      const onBusy = vi.fn();
+      setup(photo(), { saveText } as Partial<Api>, { onBusy });
+      expect(onBusy).toHaveBeenLastCalledWith(false);
+      await userEvent.click(screen.getByRole("button", { name: "Save text" }));
+      expect(onBusy).toHaveBeenLastCalledWith(true);
+      finish(photo({ textStatus: "approved" }));
+      await waitFor(() => expect(onBusy).toHaveBeenLastCalledWith(false));
     });
 
     it("closes on Escape, but not while a save is on its way", async () => {

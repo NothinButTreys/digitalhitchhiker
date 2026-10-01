@@ -463,7 +463,7 @@ label input, label textarea, label select { font-size: 14px; font-weight: 400; }
 /* Where there is room, a photograph's editor is a panel docked to the right,
    the left or the bottom of the window, wherever the owner last put it, and
    the page makes room for it so the photographs stay in view and in use. */
-@media (min-width: 700px) {
+@media (min-width: 700px) and (min-height: 500px) {
   .site-header { position: sticky; top: 0; z-index: 5; }
   /* Whatever is scrolled into view, by the keyboard's focus above all, stops below the bar. */
   html { scroll-padding-top: calc(var(--header-h) + 8px); }
@@ -494,7 +494,7 @@ label input, label textarea, label select { font-size: 14px; font-weight: 400; }
 .dock-handle { flex: none; width: 56px; margin: -12px auto 0 -12px; background: var(--side); border-color: var(--edge); cursor: grab; touch-action: none; }
 .dock-handle:hover:not(:disabled) { background: var(--raised); border-color: var(--muted); }
 .dock-handle:active { cursor: grabbing; }
-.dock-preview { position: fixed; z-index: 6; border: 2px dashed var(--accent); border-radius: 12px; background: rgb(255 178 36 / 0.12); pointer-events: none; }
+.dock-preview { position: fixed; border: 2px dashed var(--accent); border-radius: 12px; background: rgb(255 178 36 / 0.12); pointer-events: none; }
 .dock-preview[data-dock="right"] { inset: calc(var(--header-h) + 8px) 8px 8px auto; width: calc(var(--panel-w) - 16px); }
 .dock-preview[data-dock="left"] { inset: calc(var(--header-h) + 8px) auto 8px 8px; width: calc(var(--panel-w) - 16px); }
 .dock-preview[data-dock="bottom"] { inset: auto 8px 8px 8px; height: calc(var(--panel-h) - 16px); }
@@ -503,14 +503,20 @@ html[data-editor-dock="right"] main { padding-right: calc(var(--pad) + var(--pan
 html[data-editor-dock="left"] main { padding-left: calc(var(--pad) + var(--panel-w)); }
 html[data-editor-dock="bottom"] main { padding-bottom: calc(72px + var(--panel-h)); }
 html[data-editor-dock="bottom"] { scroll-padding-bottom: var(--panel-h); }
+/* On a screen where the categories are a row under the bar, a panel down one
+   side would lie over part of that row; the row is shortened to end at it. */
+html[data-editor-dock="right"] .category-nav { margin-right: var(--panel-w); }
+html[data-editor-dock="left"] .category-nav { margin-left: var(--panel-w); }
 
 @media (min-width: 960px) {
   .page { display: grid; grid-template-columns: 264px minmax(0, 1fr); grid-template-rows: auto 1fr; }
-  .site-header { grid-column: 1 / -1; }
-  /* Docked on the left the panel lies over the list of categories; along the bottom it leaves the list clear. */
-  html[data-editor-dock="left"] main { padding-left: calc(var(--pad) + var(--panel-w) - 264px); }
-  .editor[data-dock="bottom"], .dock-preview[data-dock="bottom"] { left: 264px; }
-  .dock-preview[data-dock="bottom"] { left: 272px; }
+  .site-header { grid-column: 1 / -1; position: sticky; top: 0; z-index: 5; }
+  html { scroll-padding-top: calc(var(--header-h) + 8px); }
+  /* The list of categories down the left is never covered: a panel on the
+     left, or along the bottom, starts where the list ends. */
+  html[data-editor-dock="right"] .category-nav, html[data-editor-dock="left"] .category-nav { margin: 0; }
+  .editor[data-dock="left"], .editor[data-dock="bottom"] { left: 264px; }
+  .dock-preview[data-dock="left"], .dock-preview[data-dock="bottom"] { left: 272px; }
   main { grid-column: 2; grid-row: 2; }
   /* Until there is a category there is no list of them, and the screen takes the whole width. */
   .page:not(:has(.category-nav)) main { grid-column: 1 / -1; }

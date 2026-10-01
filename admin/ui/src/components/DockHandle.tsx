@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
 import { DOCK_WORDS, dockAt, nextDock, type Dock } from "../editor-dock";
 import { GripIcon } from "./icons";
 
@@ -38,19 +38,32 @@ export function DockHandle({ dock, onDock }: Props) {
     if (!dragged.current) return;
     setTarget(null);
     onDock(dockAt(event.clientX, event.clientY, window.innerWidth, window.innerHeight));
+    // Letting go after a drag also sends a click, at once, when the drag was
+    // made with a mouse; that click is the drag's, not a press. A finger's
+    // drag sends none, so the mark is wiped a moment later either way and
+    // can never swallow the next real press.
+    window.setTimeout(() => {
+      dragged.current = false;
+    }, 0);
   };
   const cancel = () => {
     start.current = null;
     dragged.current = false;
     setTarget(null);
   };
+  // The pointer was let go somewhere the handle never heard about.
+  const lost = () => {
+    start.current = null;
+    setTarget(null);
+  };
 
-  // Letting go after a drag also sends a click; that one is the drag's, not a press.
-  const click = () => {
-    if (dragged.current) {
+  const click = (event: MouseEvent<HTMLButtonElement>) => {
+    // A click with no pointer behind it (the keyboard, a screen reader) is always a press.
+    if (dragged.current && event.detail !== 0) {
       dragged.current = false;
       return;
     }
+    dragged.current = false;
     onDock(nextDock(dock));
   };
 
@@ -72,6 +85,7 @@ export function DockHandle({ dock, onDock }: Props) {
         onPointerMove={move}
         onPointerUp={up}
         onPointerCancel={cancel}
+        onLostPointerCapture={lost}
         onClick={click}
         onKeyDown={key}
       >

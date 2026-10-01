@@ -10,13 +10,17 @@ const KEY = "dh:editor-dock";
 
 const matches = (query: string) => typeof window.matchMedia === "function" && window.matchMedia(query).matches;
 
-/** True where the screen is wide enough for the editor to sit beside the photographs rather than over them. */
-export const canDock = () => matches("(min-width: 700px)");
+/**
+ * True where the screen has room for the editor to sit beside the photographs
+ * rather than over them: wide enough, and (a phone on its side is not) tall
+ * enough to share. The stylesheet keeps the top bar in place on the same terms.
+ */
+export const canDock = () => matches("(min-width: 700px) and (min-height: 500px)");
 
 /**
  * On a wide screen the right-hand side; on a narrower one, a tablet held
- * upright say, the bottom. A screen with little height (a phone on its side)
- * has no room to give up at the bottom, so there it is the side again.
+ * upright say, the bottom. A screen with little height has no room to give
+ * up at the bottom, so there it is the side again.
  */
 export const defaultDock = (): Dock => (matches("(min-width: 960px)") || matches("(max-height: 600px)") ? "right" : "bottom");
 

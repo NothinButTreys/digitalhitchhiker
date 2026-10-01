@@ -8,10 +8,11 @@ HTMLDialogElement.prototype.showModal = function showModal(this: HTMLDialogEleme
   Object.assign(this as unknown as Opened, { openedBy: document.activeElement, modal: true });
   this.setAttribute("open", "");
 };
-// show() opens a dialog without making the rest of the page inert. A browser
-// remembers the focused element for it, and restores it on close, just the same.
+// show() opens a dialog without making the rest of the page inert. Not every
+// browser gives focus back when such a dialog closes, so this stub does not:
+// whatever the admin needs there, it has to do itself.
 HTMLDialogElement.prototype.show = function show(this: HTMLDialogElement) {
-  Object.assign(this as unknown as Opened, { openedBy: document.activeElement, modal: false });
+  Object.assign(this as unknown as Opened, { openedBy: null, modal: false });
   this.setAttribute("open", "");
 };
 HTMLDialogElement.prototype.close = function close(this: HTMLDialogElement) {
