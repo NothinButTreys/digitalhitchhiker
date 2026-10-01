@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Manifest, SetContent } from "../../src/data/schema";
-import { idFromHash, planMigration, toSql, type OriginalFile } from "./plan";
+import { MAX_SHOWN, idFromHash, planMigration, toSql, type OriginalFile } from "./plan";
 
 const hash = (letter: string) => letter.repeat(64);
 const original = (relativePath: string, letter: string, contentType = "image/jpeg"): OriginalFile => ({
@@ -76,6 +76,31 @@ describe("planMigration", () => {
       relativePath: "Phoenix Zoo/zoo 2.jpg",
     });
     expect(photos.find((p) => p.slug === "egret")).toMatchObject({ selected: 1, position: 2 });
+  });
+
+  it("shows only the first eight of a set that shows more, keeping the others' text so they can be ticked later", () => {
+    expect(MAX_SHOWN).toBe(8);
+    const letters = "abcdefghij".split("");
+    const big: SetContent = {
+      slug: "desert", title: "Desert", place: "Arizona", description: "Dry places.",
+      photos: letters.map((letter, index) => ({
+        slug: `p-${index + 1}`, source: `Desert/${letter}.jpg`, title: `Title ${index + 1}`, alt: `Alt ${index + 1}`, description: `Description ${index + 1}.`,
+      })),
+    };
+    const result = planMigration({
+      originals: letters.map((letter) => original(`Desert/${letter}.jpg`, letter)),
+      sets: [big],
+      order: ["desert"],
+      manifest: Object.fromEntries(letters.map((_, index) => [`desert/p-${index + 1}`, entry])),
+    });
+    expect(result.photos.map((p) => [p.slug, p.selected, p.position, p.textStatus])).toEqual([
+      ["p-1", 1, 1, "approved"], ["p-2", 1, 2, "approved"], ["p-3", 1, 3, "approved"], ["p-4", 1, 4, "approved"],
+      ["p-5", 1, 5, "approved"], ["p-6", 1, 6, "approved"], ["p-7", 1, 7, "approved"], ["p-8", 1, 8, "approved"],
+      ["p-9", 0, 0, "approved"], ["p-10", 0, 0, "approved"],
+    ]);
+    expect(result.photos[9]).toMatchObject({ title: "Title 10", alt: "Alt 10", description: "Description 10." });
+    // Their existing images are still seeded, so ticking one later encodes nothing.
+    expect(result.metas).toHaveLength(10);
   });
 
   it("brings an unpublished original in unshown and needing its text, in its folder's category", () => {

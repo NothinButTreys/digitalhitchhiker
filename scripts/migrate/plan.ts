@@ -37,6 +37,13 @@ export type MigrationPlan = {
   duplicates: { relativePath: string; sameAs: string }[];
 };
 
+/**
+ * The library shows at most this many photographs in a category. A set that
+ * shows more on the site today keeps its first eight shown, in order; the
+ * rest come in with their text, ready to be ticked, but not shown.
+ */
+export const MAX_SHOWN = 8;
+
 /** The first 32 characters of a hash, shaped like the UUIDs the library uses for ids. */
 export function idFromHash(hash: string): string {
   const h = hash.slice(0, 32);
@@ -107,7 +114,16 @@ export function planMigration(input: { originals: OriginalFile[]; sets: SetConte
       if (keptPathByHash.has(file.hash)) throw new Error(`${address}: its original is identical to "${keptPathByHash.get(file.hash)}"`);
       const entry = manifest[address];
       if (!entry) throw new Error(`${address}: no entry in the manifest`);
-      add(file, categoryId, { slug: photo.slug, title: photo.title, alt: photo.alt, description: photo.description, textStatus: "approved", selected: 1, position: index + 1 });
+      const shown = index < MAX_SHOWN;
+      add(file, categoryId, {
+        slug: photo.slug,
+        title: photo.title,
+        alt: photo.alt,
+        description: photo.description,
+        textStatus: "approved",
+        selected: shown ? 1 : 0,
+        position: shown ? index + 1 : 0,
+      });
       for (const name of derivedFiles(entry)) {
         const [width, ext] = name.split(".") as [string, "avif" | "jpg"];
         derived.push({ key: `derived/${file.hash}/${name}`, from: outputFile(set.slug, photo.slug, Number(width), ext) });

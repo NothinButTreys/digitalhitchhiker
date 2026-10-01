@@ -154,7 +154,10 @@ async function main(): Promise<void> {
 
     const shown = plan.photos.filter((photo) => photo.selected === 1).length;
     console.log(`${plan.categories.length} categories`);
-    console.log(`${plan.photos.length} photographs: ${shown} shown with their text, ${plan.photos.length - shown} unshown and needing text`);
+    const ready = plan.photos.filter((photo) => photo.selected === 0 && photo.textStatus === "approved").length;
+    console.log(
+      `${plan.photos.length} photographs: ${shown} shown with their text, ${ready} with their text but not shown, ${plan.photos.length - shown - ready} needing text`,
+    );
     console.log(`${plan.derived.length} existing images and ${plan.metas.length} cache entries to seed`);
     for (const duplicate of plan.duplicates) console.log(`Left out, identical to ${duplicate.sameAs}: ${duplicate.relativePath}`);
 

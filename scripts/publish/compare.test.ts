@@ -30,6 +30,9 @@ async function commitSite() {
   git("commit", "--quiet", "-m", "site");
 }
 
+const twoPhotos = (photos: Array<{ slug: string; title: string }>, source = "x.jpg") =>
+  `${JSON.stringify({ slug: "zoo", title: "Zoo", place: "Arizona", description: "Animals.", photos: photos.map((photo) => ({ ...photo, source, alt: "Alt", description: "D." })) }, null, 2)}\n`;
+
 describe("compareToCommitted", () => {
   it("has nothing to compare with when no content is committed", async () => {
     await write("README.md", "hello");
@@ -44,7 +47,38 @@ describe("compareToCommitted", () => {
     expect(await compareToCommitted(root)).toEqual([]);
   });
 
-  it("reports changed text, a changed image, a new image, a missing image, and a changed order or manifest", async () => {
+  it("accepts a library that shows fewer photographs and fewer sets than the site, when what it shows is unchanged", async () => {
+    const tiger = { slug: "tiger", title: "Tiger" };
+    const egret = { slug: "egret", title: "Egret" };
+    const zebra = { slug: "zebra", title: "Zebra" };
+    await write("content/sets/zoo.json", twoPhotos([tiger, egret, zebra], "Phoenix Zoo/a.jpg"));
+    await write("content/sets/city.json", set("City/x.jpg"));
+    await write("content/set-order.json", '[\n  "city",\n  "zoo"\n]\n');
+    await write("src/data/manifest.json", JSON.stringify({ "zoo/tiger": { width: 1 }, "zoo/egret": { width: 2 }, "zoo/zebra": { width: 3 }, "city/tiger": { width: 4 } }));
+    for (const name of ["tiger", "egret", "zebra"]) await write(`public/photos/zoo/${name}-640.jpg`, `${name} bytes`);
+    await write("public/photos/city/tiger-640.jpg", "city bytes");
+    git("add", ".");
+    git("commit", "--quiet", "-m", "site");
+
+    // The library shows the tiger and the zebra, in that order, and no city set at all.
+    await write("content/sets/zoo.json", twoPhotos([tiger, zebra], "a.jpg"));
+    await rm(path.join(root, "content/sets/city.json"));
+    await write("content/set-order.json", '[\n  "zoo"\n]\n');
+    await write("src/data/manifest.json", JSON.stringify({ "zoo/tiger": { width: 1 }, "zoo/zebra": { width: 3 } }));
+    await rm(path.join(root, "public/photos/zoo/egret-640.jpg"));
+    await rm(path.join(root, "public/photos/city"), { recursive: true });
+    expect(await compareToCommitted(root)).toEqual([]);
+
+    // The same photographs in another order are not the same site.
+    await write("content/sets/zoo.json", twoPhotos([zebra, tiger], "a.jpg"));
+    expect(await compareToCommitted(root)).toEqual(["content/sets/zoo.json differs"]);
+
+    // Nor is a photograph the site never had.
+    await write("content/sets/zoo.json", twoPhotos([tiger, { slug: "lion", title: "Lion" }], "a.jpg"));
+    expect(await compareToCommitted(root)).toEqual(["content/sets/zoo.json differs"]);
+  });
+
+  it("reports changed text, a changed image, a new image, a new set, and a changed order or manifest entry", async () => {
     await commitSite();
     await write("content/sets/zoo.json", set("IMG_1.jpg", "Tigress"));
     await write("public/photos/zoo/tiger-640.jpg", "other bytes");
@@ -62,13 +96,19 @@ describe("compareToCommitted", () => {
     ]);
   });
 
-  it("reports a committed file that was not generated", async () => {
+  it("reports a set whose title, place or description changed", async () => {
     await commitSite();
-    await rm(path.join(root, "public/photos/zoo/tiger-640.jpg"));
-    await rm(path.join(root, "content/sets/zoo.json"));
-    expect(await compareToCommitted(root)).toEqual([
-      "content/sets/zoo.json is missing",
-      "public/photos/zoo/tiger-640.jpg is missing",
-    ]);
+    await write("content/sets/zoo.json", set("IMG_1.jpg").replace('"Arizona"', '"Nevada"'));
+    expect(await compareToCommitted(root)).toEqual(["content/sets/zoo.json differs"]);
+  });
+
+  it("reports the committed order rearranged", async () => {
+    await commitSite();
+    await write("content/sets/city.json", set("x.jpg"));
+    await write("content/set-order.json", '[\n  "zoo",\n  "city"\n]\n');
+    git("add", ".");
+    git("commit", "--quiet", "-m", "two sets");
+    await write("content/set-order.json", '[\n  "city",\n  "zoo"\n]\n');
+    expect(await compareToCommitted(root)).toEqual(["content/set-order.json differs"]);
   });
 });
