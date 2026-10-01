@@ -111,6 +111,8 @@ export function PublishPanel({ api, formatTime = defaultFormat, pollMs }: Props)
         onClick={show}
       >
         Publish
+        {/* Where there is no room for the words beside it, a dot on the button says the same. */}
+        {state?.unpublishedChanges && <span className="publish-dot" aria-hidden="true" />}
       </button>
 
       <p role="status" className="visually-hidden" data-announcement="outside">

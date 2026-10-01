@@ -8,6 +8,7 @@ import { PublishPanel } from "./components/PublishPanel";
 import { LibraryProvider, useLibrary } from "./library";
 import { CategoriesScreen } from "./screens/CategoriesScreen";
 import { CategoryScreen } from "./screens/CategoryScreen";
+import { photographs } from "./text";
 
 // Keyed by the category, so moving to another category starts a fresh screen
 // rather than showing the previous category's state while the next one loads.
@@ -15,8 +16,6 @@ function CategoryRoute({ api }: { api: Api }) {
   const { categoryId = "" } = useParams();
   return <CategoryScreen key={categoryId} api={api} categoryId={categoryId} />;
 }
-
-const photographs = (count: number) => `${count} ${count === 1 ? "photograph" : "photographs"}`;
 
 /**
  * Every category, one tap away from anywhere, plus a way to start a new one.
@@ -56,11 +55,8 @@ function CategoryNav({ api }: { api: Api }) {
                   )}
                 </span>
                 <span className="nav-meta" aria-hidden="true">
-                  {photographs(category.photoCount)}
+                  {photographs(category.photoCount)} · {category.selectedCount} shown
                 </span>
-              </span>
-              <span className="nav-count" aria-hidden="true" title={`${category.selectedCount} shown on the site`}>
-                {category.selectedCount}
               </span>
             </NavLink>
           </li>
@@ -112,11 +108,10 @@ export function App({ api }: { api: Api }) {
     <LibraryProvider api={api}>
       <div className="page">
         <header className="site-header">
-          <Link to="/" className="wordmark">
+          <Link to="/" className="wordmark" aria-label="Digital Hitchhiker · Library">
             <Mark />
             <span className="wordmark-text">
               <span className="wordmark-name">Digital Hitchhiker</span>
-              <span className="visually-hidden"> · </span>
               <span className="wordmark-sub">Library</span>
             </span>
           </Link>

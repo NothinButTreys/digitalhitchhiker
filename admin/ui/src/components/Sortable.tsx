@@ -8,6 +8,7 @@ import {
   useSensors,
   type Announcements,
   type DragEndEvent,
+  type Modifier,
   type UniqueIdentifier,
 } from "@dnd-kit/core";
 import {
@@ -17,7 +18,6 @@ import {
   rectSortingStrategy,
   sortableKeyboardCoordinates,
   useSortable,
-  verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { createContext, useContext, useEffect, useRef, type CSSProperties, type MouseEvent, type ReactNode } from "react";
@@ -30,15 +30,18 @@ const HOLD_MS = 300;
 /** A click this soon after a drag ends belongs to the drag (the release), not to the person. */
 const AFTER_DRAG_MS = 400;
 
-const STRATEGIES = { grid: rectSortingStrategy, strip: horizontalListSortingStrategy, list: verticalListSortingStrategy };
+const STRATEGIES = { grid: rectSortingStrategy, strip: horizontalListSortingStrategy };
+
+/** In a single row an item is only ever carried along the row, never up out of it. */
+const alongTheRow: Modifier = ({ transform }) => ({ ...transform, y: 0 });
 
 type DragState = { active: boolean; endedAt: number };
 const DragStateContext = createContext<{ current: DragState } | null>(null);
 
 type Props = {
   ids: string[];
-  /** A grid of tiles, a single row that scrolls sideways, or a single column. */
-  layout: "grid" | "strip" | "list";
+  /** A grid that wraps, or a single row that scrolls sideways. */
+  layout: "grid" | "strip";
   /** True while a change is being saved, so a second move cannot overtake it. */
   disabled?: boolean;
   /** What to call an item when announcing a move to a screen reader. */
@@ -124,6 +127,7 @@ export function Sortable({ ids, layout, disabled = false, nameOf, onReorder, chi
     <DndContext
       sensors={sensors}
       collisionDetection={closestCenter}
+      modifiers={layout === "strip" ? [alongTheRow] : undefined}
       accessibility={{ announcements, screenReaderInstructions: { draggable: INSTRUCTIONS } }}
       onDragStart={begin}
       onDragEnd={finish}

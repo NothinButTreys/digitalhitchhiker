@@ -89,11 +89,11 @@ describe("App", () => {
     const zooLink = nav.getByRole("link", { name: "Phoenix Zoo" });
     expect(zooLink.querySelector("img")?.getAttribute("src")).toBe("/api/photos/tiger/preview");
     expect(zooLink.querySelector("img")?.getAttribute("alt")).toBe("");
-    expect(within(zooLink).getByText("27 photographs").getAttribute("aria-hidden")).toBe("true");
-    expect(within(zooLink).getByText("8").getAttribute("aria-hidden")).toBe("true");
+    expect(within(zooLink).getByText("27 photographs · 8 shown").getAttribute("aria-hidden")).toBe("true");
     const riverLink = nav.getByRole("link", { name: "Salt River (hidden)" });
     expect(riverLink.querySelector("img")).toBeNull();
-    expect(within(riverLink).getByText("1 photograph")).toBeTruthy();
+    expect(within(riverLink).getByText("1 photograph · 0 shown")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Digital Hitchhiker · Library" }).getAttribute("href")).toBe("/");
   });
 
   it("creates a category from the navigation and goes straight into it", async () => {

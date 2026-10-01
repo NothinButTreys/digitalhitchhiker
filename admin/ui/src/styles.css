@@ -112,7 +112,7 @@ main { --pad: 16px; min-width: 0; width: 100%; padding: 24px var(--pad) 72px; }
 .category-nav a:focus-visible, .category-nav button:focus-visible { outline-offset: -2px; }
 .nav-cover { flex: none; width: 32px; height: 32px; border-radius: 50%; overflow: hidden; background: var(--raised); }
 .nav-cover img { width: 100%; height: 100%; object-fit: cover; }
-.nav-meta, .nav-count, .nav-new-text { display: none; }
+.nav-meta, .nav-new-text { display: none; }
 .nav-new { border: 1px dashed var(--edge); border-radius: 50%; width: 44px; padding: 0; display: inline-grid; place-items: center; background: transparent; }
 
 /* Controls */
@@ -208,7 +208,8 @@ label input, label textarea, label select { font-size: 14px; font-weight: 400; }
   line-height: 1;
   padding: 3px 6px;
   border-radius: 6px;
-  background: rgb(19 20 21 / 0.6);
+  /* Dark enough that the number reads over the brightest photograph. */
+  background: rgb(19 20 21 / 0.88);
   color: var(--accent);
   pointer-events: none;
 }
@@ -241,24 +242,26 @@ label input, label textarea, label select { font-size: 14px; font-weight: 400; }
 
 .hero {
   position: relative;
-  margin: -24px calc(-1 * var(--pad)) 0;
+  margin: 0 calc(-1 * var(--pad));
   min-height: 200px;
   display: flex;
   align-items: flex-end;
   overflow: hidden;
   background: var(--surface);
 }
+/* At the top of the screen it runs right up under the bar. */
+.screen > .hero:first-child { margin-top: -24px; }
 .hero-cover { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 40%; }
-/* Over a cover, a dark wash keeps the words readable whatever the photograph. */
-.hero[data-cover]::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to top, var(--bg) 0%, rgb(19 20 21 / 0.62) 50%, rgb(19 20 21 / 0.5) 100%);
+/* Over a cover, a light wash settles the whole photograph, and a darker one
+   sits behind the words themselves, however many lines they run to, so they
+   read (at least 4.5:1) over the brightest sky. It fades out above them. */
+.hero[data-cover]::after { content: ""; position: absolute; inset: 0; background: rgb(19 20 21 / 0.3); }
+.hero[data-cover] .hero-body {
+  background: linear-gradient(to top, var(--bg) 0%, rgb(19 20 21 / 0.72) 40%, rgb(19 20 21 / 0.72) calc(100% - 48px), transparent 100%);
 }
 .hero-body {
   width: 100%;
-  padding: 28px var(--pad) 20px;
+  padding: 56px var(--pad) 20px;
   display: flex;
   flex-wrap: wrap;
   gap: 12px 24px;
@@ -268,7 +271,7 @@ label input, label textarea, label select { font-size: 14px; font-weight: 400; }
 /* The words and the controls sit above the wash. */
 .hero-text, .hero .category-tools { position: relative; z-index: 1; }
 .hero-text { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
-.hero-place { color: var(--accent); }
+.hero-place { order: -1; align-self: flex-start; padding: 2px 8px; border-radius: 999px; background: rgb(19 20 21 / 0.88); color: var(--accent); }
 .hero-stats { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; font-family: var(--mono); font-size: 13px; }
 .hero .icon-button { background: var(--scrim); border-color: rgb(237 238 240 / 0.4); }
 .hero .icon-button:hover:not(:disabled) { background: var(--bg); border-color: var(--text); }
@@ -299,10 +302,11 @@ label input, label textarea, label select { font-size: 14px; font-weight: 400; }
 .tile[data-dragging] img { cursor: grabbing; }
 
 /* The shown photographs run in one row, in the order the site shows them,
-   and scroll sideways. The room around the row is so that a tile's outline,
-   and its shadow while it is carried, are not cut off by the scrolling box. */
-.strip { display: flex; margin: -6px; padding: 6px; overflow-x: auto; scrollbar-width: thin; }
-.strip .tile { flex: none; height: 168px; min-width: 150px; aspect-ratio: auto; }
+   and scroll sideways. The room around the row is so that a tile's outline
+   is not cut off by the scrolling box. */
+.strip { display: flex; margin: -6px; padding: 6px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+/* A very wide photograph is cropped rather than left to fill the whole row. */
+.strip .tile { flex: none; height: 168px; min-width: 150px; max-width: min(100%, 520px); aspect-ratio: auto; }
 .strip .tile img { width: auto; min-width: 100%; height: 100%; max-width: none; object-fit: cover; }
 
 /* The controls sit over the image and stay out of the way until the tile is
@@ -431,6 +435,8 @@ label input, label textarea, label select { font-size: 14px; font-weight: 400; }
 
 .publish-status { display: none; align-items: center; gap: 8px; font-size: 13px; }
 .publish-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.publish-button { display: inline-flex; align-items: center; gap: 8px; }
+.publish-button .publish-dot { background: var(--accent-ink); }
 .publish-button { margin-left: auto; font-weight: 600; }
 /* Amber while there is something the site does not have yet. */
 .publish-button[data-pending] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
@@ -441,9 +447,12 @@ label input, label textarea, label select { font-size: 14px; font-weight: 400; }
   .site-header { padding: 0 20px; }
   .publish-status { display: inline-flex; margin-left: auto; }
   .publish-status + .publish-button { margin-left: 0; }
+  .publish-button .publish-dot { display: none; }
   .hero { min-height: 260px; }
   /* With room to spare, the category's own controls sit in the header's top corner. */
   .hero .category-tools { position: absolute; top: 16px; right: var(--pad); }
+  /* The words start below those controls, so a long title never runs under them. */
+  .hero-body { padding-top: 76px; }
   .tiles { gap: 14px; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
   .strip .tile { height: 176px; }
   .rows { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 28px 20px; }
@@ -470,6 +479,8 @@ label input, label textarea, label select { font-size: 14px; font-weight: 400; }
 @media (min-width: 960px) {
   .page { display: grid; grid-template-columns: 264px minmax(0, 1fr); grid-template-rows: auto 1fr; }
   .site-header { grid-column: 1 / -1; position: sticky; top: 0; z-index: 5; }
+  /* Whatever is scrolled into view, by the keyboard's focus above all, stops below the bar. */
+  html { scroll-padding-top: calc(var(--header-h) + 8px); }
   main { grid-column: 2; grid-row: 2; }
   /* Until there is a category there is no list of them, and the screen takes the whole width. */
   .page:not(:has(.category-nav)) main { grid-column: 1 / -1; }
@@ -494,7 +505,6 @@ label input, label textarea, label select { font-size: 14px; font-weight: 400; }
   .nav-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   .nav-title { overflow: hidden; text-overflow: ellipsis; }
   .nav-meta { display: block; font-size: 12px; font-weight: 400; color: var(--muted); }
-  .nav-count { display: inline-block; padding: 2px 8px; border-radius: 999px; font-family: var(--mono); font-size: 12px; background: var(--bg); color: var(--text); }
   .nav-new { width: 100%; margin-top: 4px; padding: 0 12px; display: flex; align-items: center; justify-content: flex-start; gap: 10px; border-radius: var(--radius); color: var(--muted); font-weight: 400; }
   .nav-new:hover:not(:disabled) { color: var(--text); }
   .nav-new-text { display: inline; }

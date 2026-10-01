@@ -6,6 +6,7 @@ import { EyeIcon, EyeOffIcon, GripIcon, PencilIcon, PlusIcon, TrashIcon } from "
 import { Problem } from "../components/Problem";
 import { Sortable, arrayMove, useSortableItem } from "../components/Sortable";
 import { useLibrary } from "../library";
+import { photographs } from "../text";
 import type { CategoryOut } from "../types";
 import { useAction } from "../use-action";
 import { useTitle } from "../use-title";
@@ -49,7 +50,7 @@ function CategoryRow({ category, number, onToggle, onEdit, onDelete }: RowProps)
           </Link>
           <span className="label muted">{category.place}</span>
           <span className="muted">
-            {category.photoCount} {category.photoCount === 1 ? "photograph" : "photographs"}, {category.selectedCount} shown
+            {photographs(category.photoCount)}, {category.selectedCount} shown
           </span>
         </div>
       </div>

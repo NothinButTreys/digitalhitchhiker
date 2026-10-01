@@ -94,8 +94,11 @@ describe("CategoryScreen", () => {
     const heading = await screen.findByRole("heading", { level: 1, name: "Phoenix Zoo" });
     const hero = heading.closest(".hero")!;
     // The cover is decoration behind the title, so it has no name of its own.
+    // Until the photographs arrive it is the one the library names.
     expect(hero.querySelector("img")?.getAttribute("src")).toBe("/api/photos/tiger/preview");
     expect(hero.querySelector("img")?.getAttribute("alt")).toBe("");
+    // The heading is what a screen reader arrives on, so it comes before the place.
+    expect(heading.compareDocumentPosition(within(hero as HTMLElement).getByText("Arizona")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(within(hero as HTMLElement).getByText("Arizona")).toBeTruthy();
     // Before the photographs arrive, the library's own figures stand in.
     expect(within(hero as HTMLElement).getByText("9 photographs")).toBeTruthy();
@@ -106,11 +109,44 @@ describe("CategoryScreen", () => {
     expect(within(hero as HTMLElement).getByText("2 shown")).toBeTruthy();
   });
 
-  it("has no cover behind the title when the category shows nothing", async () => {
-    renderAt(fakeApi([egret]));
-    const heading = await screen.findByRole("heading", { level: 1, name: "Phoenix Zoo" });
-    expect(heading.closest(".hero")!.querySelector("img")).toBeNull();
-    expect(await screen.findByText("1 photograph")).toBeTruthy();
+  it("puts the first shown photograph behind the title, and keeps up when the order changes", async () => {
+    const stale = vi.fn(async () => [{ ...zoo, coverUrl: "/api/photos/long-gone/preview" }, river]);
+    const orderSelection = vi.fn(async () => [{ ...zebra, position: 1 }, { ...tiger, position: 2 }]);
+    renderAt(fakeApi([tiger, zebra, egret], { listCategories: stale, orderSelection } as Partial<Api>));
+    await screen.findByRole("region", { name: "Not shown" });
+    const cover = () => document.querySelector(".hero img")?.getAttribute("src");
+    expect(cover()).toBe(tiger.previewUrl);
+    await userEvent.click(screen.getByRole("button", { name: "Edit Zebra" }));
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Move earlier" }));
+    await waitFor(() => expect(cover()).toBe(zebra.previewUrl));
+  });
+
+  it("puts the newest photograph behind the title when none is shown, and nothing when there are none", async () => {
+    const older = photo({ id: "older", createdAt: "2026-09-01T00:00:00.000Z" });
+    const newer = photo({ id: "newer", createdAt: "2026-09-20T00:00:00.000Z" });
+    renderAt(fakeApi([older, newer]));
+    await screen.findByRole("region", { name: "Not shown" });
+    expect(document.querySelector(".hero img")?.getAttribute("src")).toBe(newer.previewUrl);
+    expect(screen.getByText("2 photographs")).toBeTruthy();
+    cleanup();
+
+    renderAt(fakeApi([]));
+    await screen.findByRole("region", { name: "Not shown" });
+    expect(document.querySelector(".hero img")).toBeNull();
+    expect(screen.getByText("0 photographs")).toBeTruthy();
+  });
+
+  it("asks the library again after a change, so the navigation's covers and counts keep up", async () => {
+    const after = [tiger, zebra, { ...egret, selected: true, position: 3 }];
+    const listPhotos = vi.fn().mockResolvedValueOnce([tiger, zebra, egret]).mockResolvedValue(after);
+    const setSelected = vi.fn(async () => after[2]!);
+    const api = fakeApi([], { listPhotos, setSelected } as Partial<Api>);
+    renderAt(api);
+    await screen.findByRole("region", { name: "Not shown" });
+    const loads = (api.listCategories as ReturnType<typeof vi.fn>).mock.calls.length;
+    await userEvent.click(tick("Egret"));
+    await waitFor(() => expect(screen.getByText("3 shown")).toBeTruthy());
+    expect((api.listCategories as ReturnType<typeof vi.fn>).mock.calls.length).toBe(loads + 1);
   });
 
   it("numbers the shown photographs in order, for the eye only", async () => {
