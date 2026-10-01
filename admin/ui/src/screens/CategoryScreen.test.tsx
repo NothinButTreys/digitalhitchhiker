@@ -10,7 +10,12 @@ import { CategoryScreen } from "./CategoryScreen";
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  window.localStorage.clear();
 });
+
+/** A screen wide enough for the editor to sit beside the photographs, with a mouse. */
+const wideScreen = () => vi.stubGlobal("matchMedia", (query: string) => ({ matches: query.startsWith("(min-width") }));
 
 const zoo = { id: "zoo", slug: "phoenix-zoo", title: "Phoenix Zoo", place: "Arizona", description: "Animals.", hidden: false } as CategoryOut;
 const river = { id: "river", slug: "salt-river", title: "Salt River", place: "Arizona", description: "Water.", hidden: false } as CategoryOut;
@@ -584,5 +589,55 @@ describe("CategoryScreen", () => {
     expect(await screen.findByText("No such category.")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Back to the library" }).getAttribute("href")).toBe("/");
     expect(api.listPhotos).not.toHaveBeenCalled();
+  });
+
+  describe("with the editor as a panel beside the photographs", () => {
+    const editorHeading = () => within(screen.getByRole("dialog")).getByRole("heading", { level: 2 }).textContent;
+
+    it("opens another photograph straight from its tile while the panel is open", async () => {
+      wideScreen();
+      renderAt(fakeApi([tiger, zebra, egret]));
+      await screen.findByRole("region", { name: "Not shown" });
+      await userEvent.click(screen.getByRole("button", { name: "Edit Tiger" }));
+      expect(editorHeading()).toBe("Tiger");
+      await userEvent.click(screen.getByRole("button", { name: "Edit Egret" }));
+      expect(screen.getAllByRole("dialog")).toHaveLength(1);
+      expect(editorHeading()).toBe("Egret");
+      expect([...document.querySelectorAll("[data-editing]")].map((tile) => (tile as HTMLElement).dataset.photoId)).toEqual(["egret"]);
+    });
+
+    it("asks before leaving behind text that was typed and not saved", async () => {
+      wideScreen();
+      const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true);
+      renderAt(fakeApi([tiger, zebra, egret]));
+      await screen.findByRole("region", { name: "Not shown" });
+      await userEvent.click(screen.getByRole("button", { name: "Edit Tiger" }));
+      await userEvent.type(within(screen.getByRole("dialog")).getByLabelText("Title"), " at rest");
+
+      await userEvent.click(screen.getByRole("button", { name: "Edit Zebra" }));
+      expect(confirm).toHaveBeenCalledWith("Leave Tiger without saving what you typed?");
+      expect(editorHeading()).toBe("Tiger");
+      expect((within(screen.getByRole("dialog")).getByLabelText("Title") as HTMLInputElement).value).toBe("Tiger at rest");
+
+      await userEvent.click(screen.getByRole("button", { name: "Edit Zebra" }));
+      expect(editorHeading()).toBe("Zebra");
+      // Nothing was typed for Zebra, so moving on from it asks nothing.
+      await userEvent.click(screen.getByRole("button", { name: "Edit Egret" }));
+      expect(confirm).toHaveBeenCalledTimes(2);
+      expect(editorHeading()).toBe("Egret");
+    });
+
+    it("closes the panel when its photograph is deleted from its tile", async () => {
+      wideScreen();
+      vi.spyOn(window, "confirm").mockReturnValue(true);
+      const deletePhoto = vi.fn(async () => undefined);
+      renderAt(fakeApi([tiger, zebra, egret], { deletePhoto } as Partial<Api>));
+      await screen.findByRole("region", { name: "Not shown" });
+      await userEvent.click(screen.getByRole("button", { name: "Edit Egret" }));
+      expect(editorHeading()).toBe("Egret");
+      await userEvent.click(screen.getByRole("button", { name: "Delete Egret" }));
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(document.documentElement.dataset.editorDock).toBeUndefined();
+    });
   });
 });

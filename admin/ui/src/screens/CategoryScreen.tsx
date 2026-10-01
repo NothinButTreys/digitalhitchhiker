@@ -44,6 +44,8 @@ export function CategoryScreen({ api, categoryId }: { api: Api; categoryId: stri
   const focusAfterClose = useRef<HTMLElement | null>(null);
   const showAfterClose = useRef<PhotoOut | null>(null);
   const focusTick = useRef<string | null>(null);
+  // True while the open editor holds text that has not been saved.
+  const editorDirty = useRef(false);
   // Photographs uploaded here that no list from the server has included yet.
   const justUploaded = useRef(new Set<string>());
   const lastReorder = useRef(0);
@@ -131,6 +133,14 @@ export function CategoryScreen({ api, categoryId }: { api: Api; categoryId: stri
     });
 
   const openEditor = (photo: PhotoOut, intent?: "show") => {
+    // Where the editor is a panel beside the photographs, another photograph
+    // can be opened while it is open. Text typed and not saved is not thrown
+    // away without asking.
+    if (editing && editing.photo.id === photo.id && editing.intent === intent) return;
+    if (editing && editing.photo.id !== photo.id && editorDirty.current) {
+      if (!window.confirm(`Leave ${nameOf(editing.photo.id)} without saving what you typed?`)) return;
+    }
+    editorDirty.current = false;
     // Nothing left over from an earlier editor may act on this one's close.
     focusAfterClose.current = null;
     showAfterClose.current = null;
@@ -192,6 +202,8 @@ export function CategoryScreen({ api, categoryId }: { api: Api; categoryId: stri
       const name = nameOf(photo.id);
       if (!window.confirm(`Delete ${name} from the library? This cannot be undone.`)) return;
       await api.deletePhoto(photo.id);
+      // Its editor, if that is what is open, has nothing left to edit.
+      setEditing((current) => (current?.photo.id === photo.id ? null : current));
       justUploaded.current.delete(photo.id);
       setPhotos((list) => list?.filter((item) => item.id !== photo.id) ?? null);
       refreshLibrary();
@@ -359,7 +371,11 @@ export function CategoryScreen({ api, categoryId }: { api: Api; categoryId: stri
             refreshLibrary();
             setNotice(`${nameOf(id)} was ${how === "deleted" ? "deleted" : "moved to another category"}.`);
           }}
+          onDirty={(dirty) => {
+            editorDirty.current = dirty;
+          }}
           onClose={() => {
+            editorDirty.current = false;
             setEditing(null);
             const target = focusAfterClose.current;
             focusAfterClose.current = null;
