@@ -1,0 +1,34 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "digital-hitchhiker-admin",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-22",
+  "workers_dev": true,
+  "preview_urls": false,
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "digital-hitchhiker",
+      "database_id": "613f5b07-bd17-44ef-974d-2f3b3b04c8ce",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [{ "binding": "BUCKET", "bucket_name": "digital-hitchhiker-library" }],
+  "triggers": { "crons": ["0 4 * * *"] },
+  "observability": { "enabled": true },
+  // OWNER_EMAIL, ACCESS_TEAM_DOMAIN, ACCESS_AUD, and SERVICE_TOKEN_CLIENT_ID
+  // are not vars: they are Worker secrets, set with `npx wrangler secret put
+  // <NAME>`. Never add them here: a var and a secret share one name, so a var
+  // in this file would overwrite the secret on every deploy. Until they are
+  // set the Worker treats them as empty and refuses every request.
+  "vars": {
+    "ENVIRONMENT": "production",
+    "AUTH_MODE": "access"
+  }
+}
