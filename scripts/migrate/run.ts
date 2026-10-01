@@ -110,7 +110,8 @@ async function apply(plan: MigrationPlan, tmpDir: string): Promise<void> {
 
   done = 0;
   await inBatches(plan.derived, async (item) => {
-    await put(item.key, item.from, item.key.endsWith(".avif") ? "image/avif" : "image/jpeg");
+    // An absolute path: wrangler runs from admin/, and `from` is relative to the repository root.
+    await put(item.key, path.resolve(item.from), item.key.endsWith(".avif") ? "image/avif" : "image/jpeg");
     tick("Generated images", plan.derived.length);
   });
 
