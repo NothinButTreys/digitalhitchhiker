@@ -10,7 +10,12 @@ import { CategoryScreen } from "./CategoryScreen";
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  window.localStorage.clear();
 });
+
+/** A screen wide enough for the editor to sit beside the photographs, with a mouse. */
+const wideScreen = () => vi.stubGlobal("matchMedia", (query: string) => ({ matches: query.startsWith("(min-width") }));
 
 const zoo = { id: "zoo", slug: "phoenix-zoo", title: "Phoenix Zoo", place: "Arizona", description: "Animals.", hidden: false } as CategoryOut;
 const river = { id: "river", slug: "salt-river", title: "Salt River", place: "Arizona", description: "Water.", hidden: false } as CategoryOut;
@@ -584,5 +589,152 @@ describe("CategoryScreen", () => {
     expect(await screen.findByText("No such category.")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Back to the library" }).getAttribute("href")).toBe("/");
     expect(api.listPhotos).not.toHaveBeenCalled();
+  });
+
+  describe("with the editor as a panel beside the photographs", () => {
+    const editorHeading = () => within(screen.getByRole("dialog")).getByRole("heading", { level: 2 }).textContent;
+
+    it("opens another photograph straight from its tile while the panel is open", async () => {
+      wideScreen();
+      renderAt(fakeApi([tiger, zebra, egret]));
+      await screen.findByRole("region", { name: "Not shown" });
+      await userEvent.click(screen.getByRole("button", { name: "Edit Tiger" }));
+      expect(editorHeading()).toBe("Tiger");
+      await userEvent.click(screen.getByRole("button", { name: "Edit Egret" }));
+      expect(screen.getAllByRole("dialog")).toHaveLength(1);
+      expect(editorHeading()).toBe("Egret");
+      expect([...document.querySelectorAll("[data-editing]")].map((tile) => (tile as HTMLElement).dataset.photoId)).toEqual(["egret"]);
+    });
+
+    it("asks before leaving behind text that was typed and not saved", async () => {
+      wideScreen();
+      const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true);
+      renderAt(fakeApi([tiger, zebra, egret]));
+      await screen.findByRole("region", { name: "Not shown" });
+      await userEvent.click(screen.getByRole("button", { name: "Edit Tiger" }));
+      await userEvent.type(within(screen.getByRole("dialog")).getByLabelText("Title"), " at rest");
+
+      await userEvent.click(screen.getByRole("button", { name: "Edit Zebra" }));
+      expect(confirm).toHaveBeenCalledWith("Leave Tiger without saving what you typed?");
+      expect(editorHeading()).toBe("Tiger");
+      expect((within(screen.getByRole("dialog")).getByLabelText("Title") as HTMLInputElement).value).toBe("Tiger at rest");
+
+      await userEvent.click(screen.getByRole("button", { name: "Edit Zebra" }));
+      expect(editorHeading()).toBe("Zebra");
+      // Nothing was typed for Zebra, so moving on from it asks nothing.
+      await userEvent.click(screen.getByRole("button", { name: "Edit Egret" }));
+      expect(confirm).toHaveBeenCalledTimes(2);
+      expect(editorHeading()).toBe("Egret");
+    });
+
+    it("will not open another photograph, or delete this one, while the panel is saving", async () => {
+      wideScreen();
+      let finish!: (saved: PhotoOut) => void;
+      const saveText = vi.fn(() => new Promise<PhotoOut>((resolve) => (finish = resolve)));
+      const deletePhoto = vi.fn(async () => undefined);
+      const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+      renderAt(fakeApi([tiger, zebra, egret], { saveText, deletePhoto } as Partial<Api>));
+      await screen.findByRole("region", { name: "Not shown" });
+      await userEvent.click(screen.getByRole("button", { name: "Edit Tiger" }));
+      await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Save text" }));
+
+      await userEvent.click(screen.getByRole("button", { name: "Edit Zebra" }));
+      expect(editorHeading()).toBe("Tiger");
+      expect(document.querySelector("[data-notice]")?.textContent).toBe("Wait for Tiger to finish saving.");
+      await userEvent.click(screen.getByRole("button", { name: "Delete Tiger" }));
+      expect(confirm).not.toHaveBeenCalled();
+      expect(deletePhoto).not.toHaveBeenCalled();
+
+      finish(tiger);
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      await userEvent.click(screen.getByRole("button", { name: "Edit Zebra" }));
+      expect(editorHeading()).toBe("Zebra");
+    });
+
+    it("puts focus in the panel, and opens nothing new, when the photograph already open is asked for again", async () => {
+      wideScreen();
+      renderAt(fakeApi([tiger, zebra, egret]));
+      await screen.findByRole("region", { name: "Not shown" });
+      await userEvent.click(screen.getByRole("button", { name: "Edit Tiger" }));
+      const edit = screen.getByRole("button", { name: "Edit Tiger" });
+      edit.focus();
+      await userEvent.click(edit);
+      expect(screen.getAllByRole("dialog")).toHaveLength(1);
+      expect(document.activeElement).toBe(within(screen.getByRole("dialog")).getByLabelText("Title"));
+    });
+
+    it("does not take focus from the panel when a tick made on a tile settles", async () => {
+      wideScreen();
+      const after = [tiger, zebra, { ...egret, selected: true, position: 3 }];
+      let settle!: (photo: PhotoOut) => void;
+      const setSelected = vi.fn(() => new Promise<PhotoOut>((resolve) => (settle = resolve)));
+      const listPhotos = vi.fn().mockResolvedValueOnce([tiger, zebra, egret]).mockResolvedValue(after);
+      renderAt(fakeApi([], { listPhotos, setSelected } as Partial<Api>));
+      await screen.findByRole("region", { name: "Not shown" });
+      await userEvent.click(screen.getByRole("button", { name: "Edit Tiger" }));
+      await userEvent.click(tick("Egret"));
+      const title = within(screen.getByRole("dialog")).getByLabelText("Title");
+      title.focus();
+      settle(after[2]!);
+      await waitFor(() => expect(screen.getByText("3 shown")).toBeTruthy());
+      expect(document.activeElement).toBe(title);
+    });
+
+    it("finds the photograph's Edit control again on closing, after its tile has moved to the other group", async () => {
+      wideScreen();
+      const after = [tiger, zebra, { ...egret, selected: true, position: 3 }];
+      const listPhotos = vi.fn().mockResolvedValueOnce([tiger, zebra, egret]).mockResolvedValue(after);
+      const setSelected = vi.fn(async () => after[2]!);
+      renderAt(fakeApi([], { listPhotos, setSelected } as Partial<Api>));
+      await screen.findByRole("region", { name: "Not shown" });
+      await userEvent.click(screen.getByRole("button", { name: "Edit Egret" }));
+      await userEvent.click(tick("Egret"));
+      await waitFor(() => expect(screen.getByText("3 shown")).toBeTruthy());
+      // The button that opened the panel went with the old tile.
+      await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }));
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Edit Egret" }));
+    });
+
+    it("asks before a link is followed away from typed text, and lets it go once that is agreed", async () => {
+      wideScreen();
+      const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true);
+      renderAt(fakeApi([tiger, zebra]));
+      await screen.findByRole("region", { name: "Not shown" });
+      const link = document.createElement("a");
+      link.href = "/somewhere";
+      const followed = vi.fn((event: Event) => event.preventDefault());
+      link.addEventListener("click", followed);
+      document.body.append(link);
+      try {
+        link.click();
+        expect(confirm).not.toHaveBeenCalled();
+        expect(followed).toHaveBeenCalledTimes(1);
+
+        await userEvent.click(screen.getByRole("button", { name: "Edit Tiger" }));
+        await userEvent.type(within(screen.getByRole("dialog")).getByLabelText("Title"), "!");
+        link.click();
+        expect(confirm).toHaveBeenCalledWith("Leave this page without saving what you typed?");
+        expect(followed).toHaveBeenCalledTimes(1);
+        link.click();
+        expect(followed).toHaveBeenCalledTimes(2);
+      } finally {
+        link.remove();
+      }
+    });
+
+    it("closes the panel when its photograph is deleted from its tile", async () => {
+      wideScreen();
+      vi.spyOn(window, "confirm").mockReturnValue(true);
+      const deletePhoto = vi.fn(async () => undefined);
+      renderAt(fakeApi([tiger, zebra, egret], { deletePhoto } as Partial<Api>));
+      await screen.findByRole("region", { name: "Not shown" });
+      await userEvent.click(screen.getByRole("button", { name: "Edit Egret" }));
+      expect(editorHeading()).toBe("Egret");
+      await userEvent.click(screen.getByRole("button", { name: "Delete Egret" }));
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(document.documentElement.dataset.editorDock).toBeUndefined();
+      expect(document.activeElement).toBe(screen.getByRole("heading", { level: 2, name: "Not shown" }));
+    });
   });
 });

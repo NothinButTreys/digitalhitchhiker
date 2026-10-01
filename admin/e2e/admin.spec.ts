@@ -158,6 +158,37 @@ test("create a category, land in it, upload, write text, show, reorder three way
   }
   const editor = page.getByRole("dialog");
   await expect(editor.getByRole("status")).toHaveText("Position 2 of 2 on the site");
+
+  // On a wide screen the editor is a panel beside the photographs. Its tab
+  // drags it to the bottom, an outline showing where it will land, and the
+  // arrow keys send it back; the page makes room, so nothing spills sideways.
+  if (testInfo.project.name === "desktop") {
+    await expect(editor).toHaveAttribute("data-dock", "right");
+    const tab = editor.getByRole("button", { name: /^Move this panel/ });
+    const grab = (await tab.boundingBox())!;
+    const size = page.viewportSize()!;
+    await page.mouse.move(grab.x + grab.width / 2, grab.y + grab.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(size.width / 2, size.height / 2, { steps: 4 });
+    await page.mouse.move(size.width / 2, size.height - 40, { steps: 6 });
+    await expect(page.locator(".dock-preview")).toHaveAttribute("data-dock", "bottom");
+    await page.mouse.up();
+    await expect(editor).toHaveAttribute("data-dock", "bottom");
+    await expect(page.locator(".dock-preview")).toHaveCount(0);
+    await noSeriousViolations(page);
+    await controlsAreLargeEnough(page);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+    // The photographs behind the panel are still in use: one can be opened from its tile.
+    await page.getByRole("button", { name: `Edit ${nameOf(second)}` }).click();
+    await expect(editor.getByRole("heading", { level: 2 })).toHaveText(nameOf(second));
+    await expect(editor).toHaveAttribute("data-dock", "bottom");
+    await page.getByRole("button", { name: `Edit ${nameOf(first)}` }).click();
+    await expect(editor.getByRole("heading", { level: 2 })).toHaveText(nameOf(first));
+    await editor.getByRole("button", { name: /^Move this panel/ }).focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(editor).toHaveAttribute("data-dock", "right");
+    await noSeriousViolations(page);
+  }
   await editor.getByRole("button", { name: "Move earlier" }).click();
   await expect(editor.getByRole("status")).toHaveText("Position 1 of 2 on the site");
   await editor.getByRole("button", { name: "Close" }).click();

@@ -24,6 +24,8 @@
   --radius: 10px;
   --radius-lg: 14px;
   --header-h: 64px;
+  --panel-w: min(440px, 60vw);
+  --panel-h: min(46dvh, 480px);
   color-scheme: dark;
 }
 
@@ -458,29 +460,63 @@ label input, label textarea, label select { font-size: 14px; font-weight: 400; }
   .rows { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 28px 20px; }
 }
 
-/* On a wide screen a photograph's editor is a panel down the right-hand
-   side, so the photographs stay in view beside it. */
-@media (min-width: 860px) {
-  .editor {
-    width: 440px;
-    max-width: 100vw;
-    height: 100dvh;
-    max-height: 100dvh;
-    margin: 0 0 0 auto;
-    border-width: 0 0 0 1px;
-    border-radius: 0;
-    background: var(--side);
-  }
-  .editor::backdrop { background: rgb(0 0 0 / 0.4); }
-  .editor .dialog-close { background: var(--side); }
-  .editor-media img { max-height: 36dvh; }
+/* Where there is room, a photograph's editor is a panel docked to the right,
+   the left or the bottom of the window, wherever the owner last put it, and
+   the page makes room for it so the photographs stay in view and in use. */
+@media (min-width: 700px) and (min-height: 500px) {
+  .site-header { position: sticky; top: 0; z-index: 5; }
+  /* Whatever is scrolled into view, by the keyboard's focus above all, stops below the bar. */
+  html { scroll-padding-top: calc(var(--header-h) + 8px); }
 }
+
+.editor[data-dock] {
+  position: fixed;
+  z-index: 4;
+  margin: 0;
+  max-width: none;
+  max-height: none;
+  border-radius: 0;
+  background: var(--side);
+  box-shadow: 0 0 40px rgb(0 0 0 / 0.45);
+}
+.editor[data-dock] .dialog-close { background: var(--side); }
+.editor[data-dock="right"] { inset: var(--header-h) 0 0 auto; width: var(--panel-w); height: auto; border-width: 0 0 0 1px; }
+.editor[data-dock="left"] { inset: var(--header-h) auto 0 0; width: var(--panel-w); height: auto; border-width: 0 1px 0 0; }
+.editor[data-dock="bottom"] { inset: auto 0 0 0; width: auto; height: var(--panel-h); border-width: 1px 0 0; }
+/* Along the bottom there is width to spare, so the photograph sits beside its text. */
+.editor[data-dock="bottom"][open] { display: grid; grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr); gap: 0 24px; align-items: start; }
+.editor[data-dock="bottom"] .dialog-close-bar { grid-column: 1 / -1; margin-bottom: 0; }
+.editor[data-dock="bottom"] .editor-media { position: sticky; top: 0; }
+.editor[data-dock="bottom"] .editor-media img { max-height: calc(var(--panel-h) - 96px); }
+.editor[data-dock="right"] .editor-media img, .editor[data-dock="left"] .editor-media img { max-height: 36dvh; }
+
+/* The tab the panel is moved by, and the outline of where it will land. */
+.dock-handle { flex: none; width: 56px; margin: -12px auto 0 -12px; background: var(--side); border-color: var(--edge); cursor: grab; touch-action: none; }
+.dock-handle:hover:not(:disabled) { background: var(--raised); border-color: var(--muted); }
+.dock-handle:active { cursor: grabbing; }
+.dock-preview { position: fixed; border: 2px dashed var(--accent); border-radius: 12px; background: rgb(255 178 36 / 0.12); pointer-events: none; }
+.dock-preview[data-dock="right"] { inset: calc(var(--header-h) + 8px) 8px 8px auto; width: calc(var(--panel-w) - 16px); }
+.dock-preview[data-dock="left"] { inset: calc(var(--header-h) + 8px) auto 8px 8px; width: calc(var(--panel-w) - 16px); }
+.dock-preview[data-dock="bottom"] { inset: auto 8px 8px 8px; height: calc(var(--panel-h) - 16px); }
+
+html[data-editor-dock="right"] main { padding-right: calc(var(--pad) + var(--panel-w)); }
+html[data-editor-dock="left"] main { padding-left: calc(var(--pad) + var(--panel-w)); }
+html[data-editor-dock="bottom"] main { padding-bottom: calc(72px + var(--panel-h)); }
+html[data-editor-dock="bottom"] { scroll-padding-bottom: var(--panel-h); }
+/* On a screen where the categories are a row under the bar, a panel down one
+   side would lie over part of that row; the row is shortened to end at it. */
+html[data-editor-dock="right"] .category-nav { margin-right: var(--panel-w); }
+html[data-editor-dock="left"] .category-nav { margin-left: var(--panel-w); }
 
 @media (min-width: 960px) {
   .page { display: grid; grid-template-columns: 264px minmax(0, 1fr); grid-template-rows: auto 1fr; }
   .site-header { grid-column: 1 / -1; position: sticky; top: 0; z-index: 5; }
-  /* Whatever is scrolled into view, by the keyboard's focus above all, stops below the bar. */
   html { scroll-padding-top: calc(var(--header-h) + 8px); }
+  /* The list of categories down the left is never covered: a panel on the
+     left, or along the bottom, starts where the list ends. */
+  html[data-editor-dock="right"] .category-nav, html[data-editor-dock="left"] .category-nav { margin: 0; }
+  .editor[data-dock="left"], .editor[data-dock="bottom"] { left: 264px; }
+  .dock-preview[data-dock="left"], .dock-preview[data-dock="bottom"] { left: 272px; }
   main { grid-column: 2; grid-row: 2; }
   /* Until there is a category there is no list of them, and the screen takes the whole width. */
   .page:not(:has(.category-nav)) main { grid-column: 1 / -1; }

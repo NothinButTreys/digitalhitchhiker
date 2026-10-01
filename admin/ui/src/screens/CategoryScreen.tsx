@@ -19,6 +19,20 @@ function newest(list: PhotoOut[]): PhotoOut | undefined {
   return [...list].sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id))[0];
 }
 
+/**
+ * True when the keyboard's focus is nowhere useful: on nothing, on something
+ * that has left the page, or inside a dialog that has closed. Focus is only
+ * ever moved for the owner when this is so; where the editor is a panel
+ * beside the photographs they may be typing in it while a change made on a
+ * tile settles, and must not have focus taken from under them.
+ */
+function focusLost(): boolean {
+  const active = document.activeElement;
+  if (!active || active === document.body || !active.isConnected) return true;
+  const dialog = active.closest("dialog");
+  return dialog !== null && !dialog.hasAttribute("open");
+}
+
 /** The shown photographs in the given order, then everything else as it was. */
 function inOrder(list: PhotoOut[], ids: string[]): PhotoOut[] {
   const byId = new Map(list.map((photo) => [photo.id, photo]));
@@ -44,6 +58,10 @@ export function CategoryScreen({ api, categoryId }: { api: Api; categoryId: stri
   const focusAfterClose = useRef<HTMLElement | null>(null);
   const showAfterClose = useRef<PhotoOut | null>(null);
   const focusTick = useRef<string | null>(null);
+  // True while the open editor holds text that has not been saved, and while
+  // something it started (a save, a move, a delete) is still on its way.
+  const editorDirty = useRef(false);
+  const editorBusy = useRef(false);
   // Photographs uploaded here that no list from the server has included yet.
   const justUploaded = useRef(new Set<string>());
   const lastReorder = useRef(0);
@@ -76,11 +94,38 @@ export function CategoryScreen({ api, categoryId }: { api: Api; categoryId: stri
     const id = focusTick.current;
     if (!id || busy) return;
     focusTick.current = null;
+    if (!focusLost()) return;
     const tile = [...(tilesRef.current?.querySelectorAll<HTMLElement>("[data-photo-id]") ?? [])].find(
       (element) => element.dataset.photoId === id,
     );
     tile?.querySelector<HTMLElement>('[data-control="tick"]')?.focus();
   }, [photos, busy]);
+
+  // Where the editor is a panel beside the photographs, the rest of the page
+  // stays in use, links included. Following one would leave this screen and
+  // throw away text that was typed and not saved, so that is asked about
+  // first, here and when the window itself is closed or reloaded.
+  useEffect(() => {
+    const guard = (event: MouseEvent) => {
+      if (!editorDirty.current && !editorBusy.current) return;
+      const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
+      if (!link || link.getAttribute("target") === "_blank") return;
+      const stay = editorBusy.current || !window.confirm("Leave this page without saving what you typed?");
+      if (!stay) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (editorBusy.current) setNotice("Wait for the change being saved to finish.");
+    };
+    const unload = (event: BeforeUnloadEvent) => {
+      if (editorDirty.current) event.preventDefault();
+    };
+    document.addEventListener("click", guard, true);
+    window.addEventListener("beforeunload", unload);
+    return () => {
+      document.removeEventListener("click", guard, true);
+      window.removeEventListener("beforeunload", unload);
+    };
+  }, []);
 
   if (categories && !category) {
     return (
@@ -130,7 +175,30 @@ export function CategoryScreen({ api, categoryId }: { api: Api; categoryId: stri
       return [...list.filter((photo) => photo.selected), ...unlisted, ...list.filter((photo) => !photo.selected)];
     });
 
+  const findTile = (id: string) =>
+    [...(tilesRef.current?.querySelectorAll<HTMLElement>("[data-photo-id]") ?? [])].find((element) => element.dataset.photoId === id);
+
   const openEditor = (photo: PhotoOut, intent?: "show") => {
+    // Where the editor is a panel beside the photographs, another photograph
+    // can be asked for while it is open.
+    if (editing) {
+      // Not while it is saving: what happens next is never decided by an
+      // editor that has gone.
+      if (editorBusy.current) {
+        setNotice(`Wait for ${nameOf(editing.photo.id)} to finish saving.`);
+        return;
+      }
+      // The photograph that is already open: its panel is where to be. Asked
+      // for by its tick, it is now open in order to be shown.
+      if (editing.photo.id === photo.id) {
+        if (intent === "show" && editing.intent !== "show") setEditing({ photo: editing.photo, intent });
+        document.querySelector<HTMLElement>("dialog.editor[open] input")?.focus();
+        return;
+      }
+      // Text typed and not saved is not thrown away without asking.
+      if (editorDirty.current && !window.confirm(`Leave ${nameOf(editing.photo.id)} without saving what you typed?`)) return;
+    }
+    editorDirty.current = false;
     // Nothing left over from an earlier editor may act on this one's close.
     focusAfterClose.current = null;
     showAfterClose.current = null;
@@ -187,17 +255,34 @@ export function CategoryScreen({ api, categoryId }: { api: Api; categoryId: stri
     return reorder(arrayMove(ids, index, index + delta));
   };
 
-  const remove = (photo: PhotoOut) =>
-    run(async () => {
+  const remove = (photo: PhotoOut) => {
+    const open = editing?.photo.id === photo.id;
+    // Its own editor is in the middle of saving it: one thing at a time.
+    if (open && editorBusy.current) {
+      setNotice(`Wait for ${nameOf(photo.id)} to finish saving.`);
+      return Promise.resolve();
+    }
+    return run(async () => {
       const name = nameOf(photo.id);
       if (!window.confirm(`Delete ${name} from the library? This cannot be undone.`)) return;
       await api.deletePhoto(photo.id);
+      // Focus that sits on the tile, or in its editor, is about to have
+      // nowhere to be; it goes to the heading of the group the tile was in.
+      const active = document.activeElement;
+      const going =
+        active?.closest<HTMLElement>("[data-photo-id]")?.dataset.photoId === photo.id || (open && active?.closest("dialog.editor") != null);
+      // Its editor, if that is what is open, has nothing left to edit.
+      if (open) {
+        editorDirty.current = false;
+        setEditing((current) => (current?.photo.id === photo.id ? null : current));
+      }
       justUploaded.current.delete(photo.id);
       setPhotos((list) => list?.filter((item) => item.id !== photo.id) ?? null);
       refreshLibrary();
       setNotice(`${name} was deleted.`);
-      (photo.selected ? shownHeadingRef : restHeadingRef).current?.focus();
+      if (going || focusLost()) (photo.selected ? shownHeadingRef : restHeadingRef).current?.focus();
     });
+  };
 
   const toggleHidden = () =>
     run(async () => {
@@ -359,11 +444,27 @@ export function CategoryScreen({ api, categoryId }: { api: Api; categoryId: stri
             refreshLibrary();
             setNotice(`${nameOf(id)} was ${how === "deleted" ? "deleted" : "moved to another category"}.`);
           }}
+          onDirty={(dirty) => {
+            editorDirty.current = dirty;
+          }}
+          onBusy={(working) => {
+            editorBusy.current = working;
+          }}
           onClose={() => {
+            editorDirty.current = false;
+            editorBusy.current = false;
             setEditing(null);
             const target = focusAfterClose.current;
             focusAfterClose.current = null;
-            target?.focus();
+            if (target) target.focus();
+            // Whatever opened the editor may be gone by now (ticking a
+            // photograph while its panel is open moves its tile to the other
+            // group). Focus then goes to the photograph's Edit control where
+            // it now is, or failing that to the heading of its group.
+            else if (focusLost()) {
+              const edit = findTile(editingPhoto.id)?.querySelector<HTMLElement>('[data-control="edit"]');
+              (edit ?? (editingPhoto.selected ? shownHeadingRef.current : restHeadingRef.current))?.focus();
+            }
             const toShow = showAfterClose.current;
             showAfterClose.current = null;
             if (toShow) void setSelected(toShow, true);

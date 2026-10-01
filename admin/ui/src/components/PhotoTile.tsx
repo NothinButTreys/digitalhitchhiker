@@ -72,7 +72,7 @@ function TileView({ photo, name, editing, number, onToggle, onEdit, onDelete, it
           <CheckIcon />
         </button>
         <span className="tile-actions">
-          <button type="button" className="icon-button" aria-label={`Edit ${name}`} title="Edit" onClick={onEdit}>
+          <button type="button" className="icon-button" data-control="edit" aria-label={`Edit ${name}`} title="Edit" onClick={onEdit}>
             <PencilIcon />
           </button>
           <button type="button" className="icon-button" aria-label={`Delete ${name}`} title="Delete" onClick={onDelete}>

@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState, type FormEvent, type SyntheticEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type SyntheticEvent } from "react";
 import type { Api } from "../api";
+import { DOCK_WORDS, canDock, readDock, writeDock, type Dock } from "../editor-dock";
 import type { CategoryOut, PhotoOut } from "../types";
 import { useAction } from "../use-action";
 import { DialogClose } from "./DialogClose";
+import { DockHandle } from "./DockHandle";
 import { ArrowLeftIcon, ArrowRightIcon, TrashIcon } from "./icons";
 import { MoveButtons, type Order } from "./MoveButtons";
 import { Problem } from "./Problem";
@@ -22,21 +24,69 @@ type Props = {
    */
   onChange: (photo: PhotoOut, options: { andShow: boolean }) => void;
   onRemoved: (id: string, how: "deleted" | "moved") => void;
+  /** Told whenever the typed text starts or stops differing from what is saved. */
+  onDirty?: (dirty: boolean) => void;
+  /** Told whenever something the editor started (a save, a move, a delete) begins or ends. */
+  onBusy?: (busy: boolean) => void;
   onClose: () => void;
 };
 
-export function PhotoEditor({ api, photo, categories, intent, order, onChange, onRemoved, onClose }: Props) {
+/**
+ * A photograph's text and what can be done with it.
+ *
+ * Where there is room (see `canDock`) it is a panel docked to one side of
+ * the window or along the bottom, and the photographs beside it stay in
+ * use: another can be opened, ticked or dragged while it is open. On a
+ * small screen it is a dialog over the page, and the page waits behind it.
+ */
+export function PhotoEditor({ api, photo, categories, intent, order, onChange, onRemoved, onDirty, onBusy, onClose }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const title = useRef<HTMLInputElement>(null);
+  // What had the keyboard's focus when the editor opened, to give it back on closing.
+  const opener = useRef<Element | null>(null);
   const [text, setText] = useState({ title: photo.title, alt: photo.alt, description: photo.description });
   const [target, setTarget] = useState("");
   const { busy, problem, run } = useAction();
+  // Decided once, as the editor opens: a panel beside the photographs, or a dialog over them.
+  const [docked] = useState(canDock);
+  const [dock, setDock] = useState<Dock>(readDock);
+  const [moved, setMoved] = useState("");
+
+  const dirty = text.title !== photo.title || text.alt !== photo.alt || text.description !== photo.description;
+  useEffect(() => {
+    onDirty?.(dirty);
+  }, [dirty, onDirty]);
+  useEffect(() => {
+    onBusy?.(busy);
+  }, [busy, onBusy]);
+  // What the editor was opened for can change while it is open (a docked
+  // panel's photograph can be ticked from its tile), so a save asks afresh.
+  const latestIntent = useRef(intent);
+  latestIntent.current = intent;
+
+  // While the panel is docked the page makes room for it, so nothing is hidden behind it.
+  useEffect(() => {
+    if (!docked) return;
+    const root = document.documentElement;
+    root.dataset.editorDock = dock;
+    return () => {
+      delete root.dataset.editorDock;
+    };
+  }, [docked, dock]);
+
+  const moveTo = (next: Dock) => {
+    setDock(next);
+    writeDock(next);
+    setMoved(`The panel is now ${DOCK_WORDS[next]}.`);
+  };
 
   useEffect(() => {
     const element = dialog.current;
     if (!element || element.open) return;
-    element.showModal();
+    opener.current = document.activeElement;
+    if (docked) element.show();
+    else element.showModal();
     // Opening on the title field suits a keyboard. On a touch screen it would
     // raise the on-screen keyboard over the photograph the owner may only
     // have wanted to look at, so there focus goes to the heading, unless the
@@ -44,7 +94,7 @@ export function PhotoEditor({ api, photo, categories, intent, order, onChange, o
     const touch = typeof window.matchMedia === "function" && window.matchMedia("(hover: none)").matches;
     if (touch && intent !== "show") heading.current?.focus();
     else title.current?.focus();
-  }, [intent]);
+  }, [intent, docked]);
 
   // Every way of leaving the editor closes the dialog through close() rather
   // than calling onClose() directly, so the browser (or, in tests, the dialog
@@ -69,7 +119,7 @@ export function PhotoEditor({ api, photo, categories, intent, order, onChange, o
     if (busy) return;
     return run(async () => {
       const saved = await api.saveText(photo.id, text);
-      onChange(saved, { andShow: intent === "show" && dialog.current?.open === true });
+      onChange(saved, { andShow: latestIntent.current === "show" && dialog.current?.open === true });
       dialog.current?.close();
     });
   };
@@ -91,11 +141,43 @@ export function PhotoEditor({ api, photo, categories, intent, order, onChange, o
       dialog.current?.close();
     });
 
+  // A browser gives focus back to whatever had it when a dialog over the
+  // page closes. Not every browser does so for a docked panel, so there it
+  // is done here, unless focus has already been put somewhere else.
+  const closed = () => {
+    const from = opener.current;
+    const lost = document.activeElement === document.body || dialog.current?.contains(document.activeElement);
+    if (docked && lost && from instanceof HTMLElement && from.isConnected) from.focus();
+    onClose();
+  };
+
+  // A dialog over the page closes on Escape by itself; a docked panel is
+  // given the same way out.
+  const keyDown = (event: KeyboardEvent<HTMLDialogElement>) => {
+    if (!docked || event.key !== "Escape" || event.defaultPrevented) return;
+    event.preventDefault();
+    close();
+  };
+
   const others = categories.filter((category) => category.id !== photo.categoryId);
 
   return (
-    <dialog ref={dialog} className="dialog editor" aria-labelledby="editor-heading" onClose={onClose} onCancel={cancel}>
-      <DialogClose onClose={close} />
+    <dialog
+      ref={dialog}
+      className="dialog editor"
+      data-dock={docked ? dock : undefined}
+      aria-labelledby="editor-heading"
+      onClose={closed}
+      onCancel={cancel}
+      onKeyDown={keyDown}
+    >
+      <DialogClose onClose={close}>{docked && <DockHandle dock={dock} onDock={moveTo} />}</DialogClose>
+      {/* Not a status role: the panel's own status line is its place in the order. */}
+      {docked && (
+        <p className="visually-hidden" aria-live="polite" data-dock-moved="">
+          {moved}
+        </p>
+      )}
       <div className="editor-media">
         <img src={photo.previewUrl} alt={photo.alt || "Untitled photograph"} width={photo.width} height={photo.height} />
         <p className="muted">{photo.originalName}</p>
