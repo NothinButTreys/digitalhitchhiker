@@ -75,7 +75,8 @@ describe("CategoryScreen", () => {
   it("shows the category, the count, and both groups", async () => {
     renderAt(fakeApi([tiger, zebra, egret, untitled, anotherUntitled]));
     expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe("Phoenix Zoo");
-    expect(document.title).toBe("Phoenix Zoo — Library — Digital Hitchhiker");
+    // The title is set just after the heading appears, so it is waited for.
+    await waitFor(() => expect(document.title).toBe("Phoenix Zoo — Library — Digital Hitchhiker"));
     expect(await screen.findByText("2 shown")).toBeTruthy();
     expect(screen.getByText("Live")).toBeTruthy();
 
@@ -83,6 +84,89 @@ describe("CategoryScreen", () => {
     const rest = section("Not shown");
     expect(rest.getAllByText("Needs text")).toHaveLength(2);
     expect(rest.getAllByRole("img", { name: "Untitled photograph" })).toHaveLength(2);
+  });
+
+  it("heads the screen with the category's cover, place and how many photographs it holds", async () => {
+    const listCategories = vi.fn(async () => [{ ...zoo, coverUrl: "/api/photos/tiger/preview", photoCount: 9, live: true }, river]);
+    let release!: (photos: PhotoOut[]) => void;
+    const listPhotos = vi.fn(() => new Promise<PhotoOut[]>((resolve) => (release = resolve)));
+    renderAt(fakeApi([], { listCategories, listPhotos } as Partial<Api>));
+    const heading = await screen.findByRole("heading", { level: 1, name: "Phoenix Zoo" });
+    const hero = heading.closest(".hero")!;
+    // The cover is decoration behind the title, so it has no name of its own.
+    // Until the photographs arrive it is the one the library names.
+    expect(hero.querySelector("img")?.getAttribute("src")).toBe("/api/photos/tiger/preview");
+    expect(hero.querySelector("img")?.getAttribute("alt")).toBe("");
+    // The heading is what a screen reader arrives on, so it comes before the place.
+    expect(heading.compareDocumentPosition(within(hero as HTMLElement).getByText("Arizona")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(hero as HTMLElement).getByText("Arizona")).toBeTruthy();
+    // Before the photographs arrive, the library's own figures stand in.
+    expect(within(hero as HTMLElement).getByText("9 photographs")).toBeTruthy();
+    expect(within(hero as HTMLElement).getByText("Live")).toBeTruthy();
+    await waitFor(() => expect(listPhotos).toHaveBeenCalled());
+    release([tiger, zebra, egret]);
+    expect(await within(hero as HTMLElement).findByText("3 photographs")).toBeTruthy();
+    expect(within(hero as HTMLElement).getByText("2 shown")).toBeTruthy();
+  });
+
+  it("puts the first shown photograph behind the title, and keeps up when the order changes", async () => {
+    const stale = vi.fn(async () => [{ ...zoo, coverUrl: "/api/photos/long-gone/preview" }, river]);
+    const orderSelection = vi.fn(async () => [{ ...zebra, position: 1 }, { ...tiger, position: 2 }]);
+    renderAt(fakeApi([tiger, zebra, egret], { listCategories: stale, orderSelection } as Partial<Api>));
+    await screen.findByRole("region", { name: "Not shown" });
+    const cover = () => document.querySelector(".hero img")?.getAttribute("src");
+    expect(cover()).toBe(tiger.previewUrl);
+    await userEvent.click(screen.getByRole("button", { name: "Edit Zebra" }));
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Move earlier" }));
+    await waitFor(() => expect(cover()).toBe(zebra.previewUrl));
+  });
+
+  it("puts the newest photograph behind the title when none is shown, and nothing when there are none", async () => {
+    const older = photo({ id: "older", createdAt: "2026-09-01T00:00:00.000Z" });
+    const newer = photo({ id: "newer", createdAt: "2026-09-20T00:00:00.000Z" });
+    renderAt(fakeApi([older, newer]));
+    await screen.findByRole("region", { name: "Not shown" });
+    expect(document.querySelector(".hero img")?.getAttribute("src")).toBe(newer.previewUrl);
+    expect(screen.getByText("2 photographs")).toBeTruthy();
+    cleanup();
+
+    renderAt(fakeApi([]));
+    await screen.findByRole("region", { name: "Not shown" });
+    expect(document.querySelector(".hero img")).toBeNull();
+    expect(screen.getByText("0 photographs")).toBeTruthy();
+  });
+
+  it("asks the library again after a change, so the navigation's covers and counts keep up", async () => {
+    const after = [tiger, zebra, { ...egret, selected: true, position: 3 }];
+    const listPhotos = vi.fn().mockResolvedValueOnce([tiger, zebra, egret]).mockResolvedValue(after);
+    const setSelected = vi.fn(async () => after[2]!);
+    const api = fakeApi([], { listPhotos, setSelected } as Partial<Api>);
+    renderAt(api);
+    await screen.findByRole("region", { name: "Not shown" });
+    const loads = (api.listCategories as ReturnType<typeof vi.fn>).mock.calls.length;
+    await userEvent.click(tick("Egret"));
+    await waitFor(() => expect(screen.getByText("3 shown")).toBeTruthy());
+    expect((api.listCategories as ReturnType<typeof vi.fn>).mock.calls.length).toBe(loads + 1);
+  });
+
+  it("numbers the shown photographs in order, for the eye only", async () => {
+    renderAt(fakeApi([tiger, zebra, egret]));
+    await screen.findByRole("region", { name: "Not shown" });
+    const numbers = [...document.querySelectorAll(".tile-number")];
+    expect(numbers.map((number) => number.textContent)).toEqual(["01", "02"]);
+    expect(numbers.every((number) => number.getAttribute("aria-hidden") === "true")).toBe(true);
+    expect(section("Not shown").getByRole("listitem").querySelector(".tile-number")).toBeNull();
+  });
+
+  it("marks the photograph that is open in the editor, and only while it is open", async () => {
+    renderAt(fakeApi([tiger, zebra]));
+    await screen.findByRole("region", { name: "Not shown" });
+    const editingTiles = () => [...document.querySelectorAll("[data-editing]")].map((tile) => (tile as HTMLElement).dataset.photoId);
+    expect(editingTiles()).toEqual([]);
+    await userEvent.click(screen.getByRole("button", { name: "Edit Zebra" }));
+    expect(editingTiles()).toEqual(["zebra"]);
+    await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(editingTiles()).toEqual([]));
   });
 
   it("gives every photograph the same three controls, named for it, and a reorder handle only when shown", async () => {

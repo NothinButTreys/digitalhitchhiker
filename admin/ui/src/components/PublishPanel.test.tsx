@@ -57,6 +57,18 @@ describe("PublishPanel", () => {
     expect(await screen.findByRole("button", { name: "Publish, the site is up to date" })).toBeTruthy();
   });
 
+  it("shows the same standing beside the button, for the eye, and colours the button while changes wait", async () => {
+    setup([state()]);
+    const waiting = await screen.findByRole("button", { name: "Publish, there are unpublished changes" });
+    expect(waiting.hasAttribute("data-pending")).toBe(true);
+    expect(screen.getByText("Changes not yet on the site").getAttribute("aria-hidden")).toBe("true");
+    cleanup();
+    setup([state({ unpublishedChanges: false, published: { finishedAt: "2026-09-30T09:41:00.000Z" } })]);
+    const upToDate = await screen.findByRole("button", { name: "Publish, the site is up to date" });
+    expect(upToDate.hasAttribute("data-pending")).toBe(false);
+    expect(screen.getByText("The site is up to date").getAttribute("aria-hidden")).toBe("true");
+  });
+
   it("says what would be published and that the site has never been published from the library", async () => {
     setup([state()]);
     const dialog = await open();

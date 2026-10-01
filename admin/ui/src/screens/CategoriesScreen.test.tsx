@@ -67,6 +67,11 @@ describe("CategoriesScreen", () => {
     expect(zooRow.getByRole("link", { name: "Phoenix Zoo" }).getAttribute("href")).toBe("/c/zoo");
     expect(zooRow.getByText("27 photographs, 6 shown")).toBeTruthy();
     expect(zooRow.getByText("Live")).toBeTruthy();
+    // Each card carries its place in the site's menu, for the eye only.
+    const numbers = [...document.querySelectorAll(".row-number")];
+    expect(numbers.map((number) => number.textContent)).toEqual(numbers.map((_, index) => String(index + 1).padStart(2, "0")));
+    expect(numbers.length).toBeGreaterThan(1);
+    expect(numbers.every((number) => number.getAttribute("aria-hidden") === "true")).toBe(true);
     // The cover is decoration beside the title, so it has no name of its own.
     expect((await row("Phoenix Zoo")).querySelector("img")?.getAttribute("src")).toBe("/api/photos/tiger/preview");
     expect((await row("Phoenix Zoo")).querySelector("img")?.getAttribute("alt")).toBe("");

@@ -9,9 +9,15 @@ import { Problem } from "../components/Problem";
 import { Sortable, arrayMove } from "../components/Sortable";
 import { UploadButton } from "../components/UploadButton";
 import { useLibrary } from "../library";
+import { photographs } from "../text";
 import type { PhotoOut } from "../types";
 import { useAction } from "../use-action";
 import { useTitle } from "../use-title";
+
+/** The most recently added of these photographs. */
+function newest(list: PhotoOut[]): PhotoOut | undefined {
+  return [...list].sort((a, b) => b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id))[0];
+}
 
 /** The shown photographs in the given order, then everything else as it was. */
 function inOrder(list: PhotoOut[], ids: string[]): PhotoOut[] {
@@ -87,7 +93,18 @@ export function CategoryScreen({ api, categoryId }: { api: Api; categoryId: stri
 
   const shown = photos?.filter((photo) => photo.selected) ?? [];
   const rest = photos?.filter((photo) => !photo.selected) ?? [];
-  const status = category?.hidden ? "Hidden" : shown.length > 0 ? "Live" : "Not shown";
+  // Until the photographs have loaded, the library's own word on whether the
+  // category is on the site stands in for counting them.
+  const onSite = photos ? shown.length > 0 : (category?.live ?? false);
+  const status = category?.hidden ? "Hidden" : onSite ? "Live" : "Not shown";
+  const total = photos ? photos.length : (category?.photoCount ?? 0);
+  // A category's cover is the first photograph it shows, or its newest when
+  // it shows none: the library's own rule. Once the photographs are here the
+  // cover is worked out from them, so it keeps up with every change at once.
+  const coverUrl = photos ? ((shown[0] ?? newest(rest))?.previewUrl ?? null) : (category?.coverUrl ?? null);
+  // The navigation shows each category's cover and counts, which the library
+  // holds; after a change here they are fetched again.
+  const refreshLibrary = () => void reload();
 
   // Untitled photographs never carry a title, so several appear on one
   // screen; numbering them (1-based, in the order shown here) gives each of
@@ -127,6 +144,7 @@ export function CategoryScreen({ api, categoryId }: { api: Api; categoryId: stri
       focusTick.current = photo.id;
       await api.setSelected(photo.id, selected);
       showServerList(await api.listPhotos(categoryId));
+      refreshLibrary();
       const name = photo.title || "The photograph";
       setNotice(selected ? `${name} is now shown on the site.` : `${name} is no longer shown on the site.`);
     });
@@ -152,6 +170,7 @@ export function CategoryScreen({ api, categoryId }: { api: Api; categoryId: stri
       try {
         const list = await api.orderSelection(categoryId, ids);
         if (mine === lastReorder.current) showServerList(list);
+        refreshLibrary();
       } catch (error) {
         if (mine === lastReorder.current) {
           setPhotos((list) => list && inOrder(list, before));
@@ -175,6 +194,7 @@ export function CategoryScreen({ api, categoryId }: { api: Api; categoryId: stri
       await api.deletePhoto(photo.id);
       justUploaded.current.delete(photo.id);
       setPhotos((list) => list?.filter((item) => item.id !== photo.id) ?? null);
+      refreshLibrary();
       setNotice(`${name} was deleted.`);
       (photo.selected ? shownHeadingRef : restHeadingRef).current?.focus();
     });
@@ -190,6 +210,7 @@ export function CategoryScreen({ api, categoryId }: { api: Api; categoryId: stri
   const tileProps = (photo: PhotoOut) => ({
     photo,
     name: nameOf(photo.id),
+    editing: editing?.photo.id === photo.id,
     onToggle: () => toggle(photo),
     onEdit: () => openEditor(photo),
     onDelete: () => void remove(photo),
@@ -205,27 +226,49 @@ export function CategoryScreen({ api, categoryId }: { api: Api; categoryId: stri
         !(problem ?? libraryProblem) && <p>Loading…</p>
       ) : (
         <>
-          <div className="category-head">
-            <div className="category-title">
-              <h1 tabIndex={-1}>{category.title}</h1>
-              <span className="label muted">{category.place}</span>
-            </div>
-            <div className="category-tools">
-              <span className="label status" data-status={status}>
-                {status}
-              </span>
-              <button type="button" className="icon-button" aria-label="Edit category details" title="Edit details" onClick={() => setEditingDetails(true)}>
-                <PencilIcon />
-              </button>
-              <button
-                type="button"
-                className="icon-button"
-                aria-label={category.hidden ? "Show this category on the site" : "Hide this category from the site"}
-                title={category.hidden ? "Hidden. Press to show it on the site." : "Hide from the site"}
-                onClick={toggleHidden}
-              >
-                {category.hidden ? <EyeOffIcon /> : <EyeIcon />}
-              </button>
+          {/* The category's cover fills the header; it is decoration, so it
+              has no name of its own. The heading comes first for a screen
+              reader, which arrives on it; the place is lifted above it for
+              the eye. */}
+          <div className="hero" data-cover={coverUrl ? "" : undefined}>
+            {coverUrl && <img className="hero-cover" src={coverUrl} alt="" draggable={false} />}
+            <div className="hero-body">
+              <div className="hero-text">
+                <h1 tabIndex={-1}>{category.title}</h1>
+                <span className="label hero-place">{category.place}</span>
+                <p className="hero-stats">
+                  <span>{photographs(total)}</span>
+                  {photos !== null && (
+                    <span className="count">
+                      {shown.length > 0 && (
+                        <span className="meter" aria-hidden="true">
+                          {shown.map((photo) => (
+                            <span key={photo.id} />
+                          ))}
+                        </span>
+                      )}
+                      {shown.length} shown
+                    </span>
+                  )}
+                  <span className="status" data-status={status}>
+                    {status}
+                  </span>
+                </p>
+              </div>
+              <div className="category-tools">
+                <button type="button" className="icon-button" aria-label="Edit category details" title="Edit details" onClick={() => setEditingDetails(true)}>
+                  <PencilIcon />
+                </button>
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label={category.hidden ? "Show this category on the site" : "Hide this category from the site"}
+                  title={category.hidden ? "Hidden. Press to show it on the site." : "Hide from the site"}
+                  onClick={toggleHidden}
+                >
+                  {category.hidden ? <EyeOffIcon /> : <EyeIcon />}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -233,21 +276,11 @@ export function CategoryScreen({ api, categoryId }: { api: Api; categoryId: stri
             !problem && <p>Loading…</p>
           ) : (
             <div className="screen" ref={tilesRef}>
-              <p className="muted count">
-                {shown.length > 0 && (
-                  <span className="meter" aria-hidden="true">
-                    {shown.map((photo) => (
-                      <span key={photo.id} />
-                    ))}
-                  </span>
-                )}
-                {shown.length} shown
-              </p>
-
               <UploadButton
                 api={api}
                 categoryId={categoryId}
                 onUploaded={(uploaded) => {
+                  refreshLibrary();
                   justUploaded.current.add(uploaded.id);
                   setPhotos((list) => {
                     const others = (list ?? []).filter((photo) => photo.id !== uploaded.id);
@@ -263,13 +296,13 @@ export function CategoryScreen({ api, categoryId }: { api: Api; categoryId: stri
                   <h2 id="shown-heading" ref={shownHeadingRef} tabIndex={-1}>
                     Shown on the site
                   </h2>
-                  {shown.length > 1 && <p className="muted">Drag to set the order. The first photograph opens the set.</p>}
+                  {shown.length > 1 && <p className="muted">Drag left or right to set the order. The first photograph opens the set.</p>}
                 </div>
                 {shown.length === 0 && (
                   <p className="muted">Nothing shown yet, so this category is not on the site. Tick a photograph below to show it.</p>
                 )}
-                <Sortable ids={shown.map((photo) => photo.id)} layout="grid" nameOf={nameOf} onReorder={reorder}>
-                  <ul className="tiles">
+                <Sortable ids={shown.map((photo) => photo.id)} layout="strip" nameOf={nameOf} onReorder={reorder}>
+                  <ul className="tiles strip">
                     {shown.map((photo, index) => (
                       <SortablePhotoTile key={photo.id} number={index + 1} {...tileProps(photo)} />
                     ))}
@@ -323,6 +356,7 @@ export function CategoryScreen({ api, categoryId }: { api: Api; categoryId: stri
             focusAfterClose.current = (editingPhoto.selected ? shownHeadingRef.current : restHeadingRef.current) ?? null;
             justUploaded.current.delete(id);
             setPhotos((list) => list?.filter((photo) => photo.id !== id) ?? null);
+            refreshLibrary();
             setNotice(`${nameOf(id)} was ${how === "deleted" ? "deleted" : "moved to another category"}.`);
           }}
           onClose={() => {

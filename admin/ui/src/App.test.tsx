@@ -62,12 +62,38 @@ describe("App", () => {
       </MemoryRouter>,
     );
     const nav = within(await screen.findByRole("navigation", { name: "Categories" }));
-    expect(nav.getAllByRole("link").map((link) => [link.textContent, link.getAttribute("href"), link.getAttribute("aria-current")])).toEqual([
-      ["All", "/", null],
+    expect(nav.getAllByRole("link")).toHaveLength(3);
+    for (const [name, href, current] of [
+      ["All categories", "/", null],
       ["Phoenix Zoo", "/c/zoo", "page"],
       ["Salt River (hidden)", "/c/river", null],
-    ]);
+    ] as const) {
+      const link = nav.getByRole("link", { name });
+      expect([link.getAttribute("href"), link.getAttribute("aria-current")]).toEqual([href, current]);
+    }
     expect(nav.getByRole("button", { name: "New category" })).toBeTruthy();
+  });
+
+  it("shows each category's cover and counts in the navigation without adding them to the link's name", async () => {
+    const withCounts = [
+      { ...zoo, coverUrl: "/api/photos/tiger/preview", photoCount: 27, selectedCount: 8 },
+      { ...river, coverUrl: null, photoCount: 1, selectedCount: 0 },
+    ] as CategoryOut[];
+    const api = { publishState: vi.fn(async () => ({ latest: null, published: null, unpublishedChanges: false, problems: [], summary: { categories: 0, photographs: 0 } })), listCategories: vi.fn(async () => withCounts), listPhotos: vi.fn(async () => [tiger]) } as unknown as Api;
+    render(
+      <MemoryRouter initialEntries={["/c/zoo"]}>
+        <App api={api} />
+      </MemoryRouter>,
+    );
+    const nav = within(await screen.findByRole("navigation", { name: "Categories" }));
+    const zooLink = nav.getByRole("link", { name: "Phoenix Zoo" });
+    expect(zooLink.querySelector("img")?.getAttribute("src")).toBe("/api/photos/tiger/preview");
+    expect(zooLink.querySelector("img")?.getAttribute("alt")).toBe("");
+    expect(within(zooLink).getByText("27 photographs · 8 shown").getAttribute("aria-hidden")).toBe("true");
+    const riverLink = nav.getByRole("link", { name: "Salt River (hidden)" });
+    expect(riverLink.querySelector("img")).toBeNull();
+    expect(within(riverLink).getByText("1 photograph · 0 shown")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Digital Hitchhiker · Library" }).getAttribute("href")).toBe("/");
   });
 
   it("creates a category from the navigation and goes straight into it", async () => {
