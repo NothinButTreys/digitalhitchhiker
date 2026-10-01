@@ -6,8 +6,8 @@ const slug = z
 const text = z.string().trim().min(1, "must not be empty");
 const positiveInt = z.number().int().positive();
 
-// `source` is optional here because the bundler strips it from the content
-// files the site imports; `npm run photos` requires it (see requireSource).
+// `source` (the original's file name) is optional here because the bundler
+// strips it from the content files the site imports.
 const photoContentSchema = z
   .object({ slug, source: text.optional(), title: text, alt: text, description: text })
   .strict();
