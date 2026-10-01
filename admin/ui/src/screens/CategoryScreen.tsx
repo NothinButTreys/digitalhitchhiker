@@ -87,7 +87,11 @@ export function CategoryScreen({ api, categoryId }: { api: Api; categoryId: stri
 
   const shown = photos?.filter((photo) => photo.selected) ?? [];
   const rest = photos?.filter((photo) => !photo.selected) ?? [];
-  const status = category?.hidden ? "Hidden" : shown.length > 0 ? "Live" : "Not shown";
+  // Until the photographs have loaded, the library's own word on whether the
+  // category is on the site stands in for counting them.
+  const onSite = photos ? shown.length > 0 : (category?.live ?? false);
+  const status = category?.hidden ? "Hidden" : onSite ? "Live" : "Not shown";
+  const total = photos ? photos.length : (category?.photoCount ?? 0);
 
   // Untitled photographs never carry a title, so several appear on one
   // screen; numbering them (1-based, in the order shown here) gives each of
@@ -190,6 +194,7 @@ export function CategoryScreen({ api, categoryId }: { api: Api; categoryId: stri
   const tileProps = (photo: PhotoOut) => ({
     photo,
     name: nameOf(photo.id),
+    editing: editing?.photo.id === photo.id,
     onToggle: () => toggle(photo),
     onEdit: () => openEditor(photo),
     onDelete: () => void remove(photo),
@@ -205,27 +210,49 @@ export function CategoryScreen({ api, categoryId }: { api: Api; categoryId: stri
         !(problem ?? libraryProblem) && <p>Loading…</p>
       ) : (
         <>
-          <div className="category-head">
-            <div className="category-title">
-              <h1 tabIndex={-1}>{category.title}</h1>
-              <span className="label muted">{category.place}</span>
-            </div>
-            <div className="category-tools">
-              <span className="label status" data-status={status}>
-                {status}
-              </span>
-              <button type="button" className="icon-button" aria-label="Edit category details" title="Edit details" onClick={() => setEditingDetails(true)}>
-                <PencilIcon />
-              </button>
-              <button
-                type="button"
-                className="icon-button"
-                aria-label={category.hidden ? "Show this category on the site" : "Hide this category from the site"}
-                title={category.hidden ? "Hidden. Press to show it on the site." : "Hide from the site"}
-                onClick={toggleHidden}
-              >
-                {category.hidden ? <EyeOffIcon /> : <EyeIcon />}
-              </button>
+          {/* The category's cover, the first photograph it shows, fills the
+              header; it is decoration, so it has no name of its own. */}
+          <div className="hero" data-cover={category.coverUrl ? "" : undefined}>
+            {category.coverUrl && <img className="hero-cover" src={category.coverUrl} alt="" draggable={false} />}
+            <div className="hero-body">
+              <div className="hero-text">
+                <span className="label hero-place">{category.place}</span>
+                <h1 tabIndex={-1}>{category.title}</h1>
+                <p className="hero-stats">
+                  <span>
+                    {total} {total === 1 ? "photograph" : "photographs"}
+                  </span>
+                  {photos !== null && (
+                    <span className="count">
+                      {shown.length > 0 && (
+                        <span className="meter" aria-hidden="true">
+                          {shown.map((photo) => (
+                            <span key={photo.id} />
+                          ))}
+                        </span>
+                      )}
+                      {shown.length} shown
+                    </span>
+                  )}
+                  <span className="status" data-status={status}>
+                    {status}
+                  </span>
+                </p>
+              </div>
+              <div className="category-tools">
+                <button type="button" className="icon-button" aria-label="Edit category details" title="Edit details" onClick={() => setEditingDetails(true)}>
+                  <PencilIcon />
+                </button>
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label={category.hidden ? "Show this category on the site" : "Hide this category from the site"}
+                  title={category.hidden ? "Hidden. Press to show it on the site." : "Hide from the site"}
+                  onClick={toggleHidden}
+                >
+                  {category.hidden ? <EyeOffIcon /> : <EyeIcon />}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -233,17 +260,6 @@ export function CategoryScreen({ api, categoryId }: { api: Api; categoryId: stri
             !problem && <p>Loading…</p>
           ) : (
             <div className="screen" ref={tilesRef}>
-              <p className="muted count">
-                {shown.length > 0 && (
-                  <span className="meter" aria-hidden="true">
-                    {shown.map((photo) => (
-                      <span key={photo.id} />
-                    ))}
-                  </span>
-                )}
-                {shown.length} shown
-              </p>
-
               <UploadButton
                 api={api}
                 categoryId={categoryId}
@@ -263,13 +279,13 @@ export function CategoryScreen({ api, categoryId }: { api: Api; categoryId: stri
                   <h2 id="shown-heading" ref={shownHeadingRef} tabIndex={-1}>
                     Shown on the site
                   </h2>
-                  {shown.length > 1 && <p className="muted">Drag to set the order. The first photograph opens the set.</p>}
+                  {shown.length > 1 && <p className="muted">Drag left or right to set the order. The first photograph opens the set.</p>}
                 </div>
                 {shown.length === 0 && (
                   <p className="muted">Nothing shown yet, so this category is not on the site. Tick a photograph below to show it.</p>
                 )}
-                <Sortable ids={shown.map((photo) => photo.id)} layout="grid" nameOf={nameOf} onReorder={reorder}>
-                  <ul className="tiles">
+                <Sortable ids={shown.map((photo) => photo.id)} layout="strip" nameOf={nameOf} onReorder={reorder}>
+                  <ul className="tiles strip">
                     {shown.map((photo, index) => (
                       <SortablePhotoTile key={photo.id} number={index + 1} {...tileProps(photo)} />
                     ))}

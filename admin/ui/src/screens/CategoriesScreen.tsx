@@ -17,12 +17,14 @@ function status(category: CategoryOut): "Live" | "Hidden" | "Not shown" {
 
 type RowProps = {
   category: CategoryOut;
+  /** 1-based place in the site's menu. */
+  number: number;
   onToggle: () => void;
   onEdit: () => void;
   onDelete: () => void;
 };
 
-function CategoryRow({ category, onToggle, onEdit, onDelete }: RowProps) {
+function CategoryRow({ category, number, onToggle, onEdit, onDelete }: RowProps) {
   // Pressing the handle without dragging opens the details, where the Move
   // up and Move down buttons are.
   const { itemProps, handleProps } = useSortableItem(category.id, onEdit);
@@ -32,11 +34,14 @@ function CategoryRow({ category, onToggle, onEdit, onDelete }: RowProps) {
         <GripIcon />
       </button>
       {/* The title is the link; its hit area is stretched over the cover and
-          the text beside it, so the whole left of the row opens the category
-          while the link's name stays just the title. */}
+          the text under it, so the whole card opens the category while the
+          link's name stays just the title. */}
       <div className="row-main">
         <span className="row-cover">
           {category.coverUrl && <img src={category.coverUrl} alt="" loading="lazy" draggable={false} />}
+          <span className="row-number" aria-hidden="true">
+            {String(number).padStart(2, "0")}
+          </span>
         </span>
         <div className="row-text">
           <Link to={`/c/${category.id}`} className="row-title" draggable={false}>
@@ -44,31 +49,33 @@ function CategoryRow({ category, onToggle, onEdit, onDelete }: RowProps) {
           </Link>
           <span className="label muted">{category.place}</span>
           <span className="muted">
-            {category.photoCount} photographs, {category.selectedCount} shown
+            {category.photoCount} {category.photoCount === 1 ? "photograph" : "photographs"}, {category.selectedCount} shown
           </span>
         </div>
       </div>
-      <span className="label status" data-status={status(category)}>
-        {status(category)}
-      </span>
-      <div className="row-actions">
-        <button
-          type="button"
-          className="icon-button"
-          onClick={onToggle}
-          aria-label={`${category.hidden ? "Show" : "Hide"} ${category.title}`}
-          title={category.hidden ? "Hidden. Press to show it on the site." : "Hide from the site"}
-        >
-          {category.hidden ? <EyeOffIcon /> : <EyeIcon />}
-        </button>
-        <button type="button" className="icon-button" onClick={onEdit} aria-label={`Edit details of ${category.title}`} title="Edit details">
-          <PencilIcon />
-        </button>
-        {category.photoCount === 0 && (
-          <button type="button" className="icon-button" onClick={onDelete} aria-label={`Delete ${category.title}`} title="Delete">
-            <TrashIcon />
+      <div className="row-foot">
+        <span className="status" data-status={status(category)}>
+          {status(category)}
+        </span>
+        <div className="row-actions">
+          <button
+            type="button"
+            className="icon-button"
+            onClick={onToggle}
+            aria-label={`${category.hidden ? "Show" : "Hide"} ${category.title}`}
+            title={category.hidden ? "Hidden. Press to show it on the site." : "Hide from the site"}
+          >
+            {category.hidden ? <EyeOffIcon /> : <EyeIcon />}
           </button>
-        )}
+          <button type="button" className="icon-button" onClick={onEdit} aria-label={`Edit details of ${category.title}`} title="Edit details">
+            <PencilIcon />
+          </button>
+          {category.photoCount === 0 && (
+            <button type="button" className="icon-button" onClick={onDelete} aria-label={`Delete ${category.title}`} title="Delete">
+              <TrashIcon />
+            </button>
+          )}
+        </div>
       </div>
     </li>
   );
@@ -169,12 +176,13 @@ export function CategoriesScreen({ api }: { api: Api }) {
           <p className="muted">
             Drag to set the order of the site's menu. A category appears on the site once it shows at least one photograph.
           </p>
-          <Sortable ids={ids} layout="list" nameOf={(id) => categories.find((category) => category.id === id)?.title ?? "Category"} onReorder={reorder}>
+          <Sortable ids={ids} layout="grid" nameOf={(id) => categories.find((category) => category.id === id)?.title ?? "Category"} onReorder={reorder}>
             <ul className="rows">
-              {categories.map((category) => (
+              {categories.map((category, index) => (
                 <CategoryRow
                   key={category.id}
                   category={category}
+                  number={index + 1}
                   onToggle={() => void toggle(category)}
                   onEdit={() => setEditingId(category.id)}
                   onDelete={() => void remove(category)}

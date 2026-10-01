@@ -95,9 +95,22 @@ export function PublishPanel({ api, formatTime = defaultFormat, pollMs }: Props)
 
   return (
     <>
-      <button type="button" className="publish-button" aria-haspopup="dialog" aria-label={label} onClick={show}>
+      {/* The same thing the button's name says, for the eye, where there is room. */}
+      {state && (
+        <span className="publish-status" aria-hidden="true">
+          {state.unpublishedChanges && <span className="publish-dot" />}
+          {state.unpublishedChanges ? "Changes not yet on the site" : "The site is up to date"}
+        </span>
+      )}
+      <button
+        type="button"
+        className="publish-button"
+        data-pending={state?.unpublishedChanges ? "" : undefined}
+        aria-haspopup="dialog"
+        aria-label={label}
+        onClick={show}
+      >
         Publish
-        {state?.unpublishedChanges && <span className="publish-dot" aria-hidden="true" />}
       </button>
 
       <p role="status" className="visually-hidden" data-announcement="outside">
@@ -153,7 +166,7 @@ export function PublishPanel({ api, formatTime = defaultFormat, pollMs }: Props)
                   <button type="button" aria-disabled={blocked || undefined} onClick={press("preview")}>
                     Preview first
                   </button>
-                  <button type="button" className="primary" aria-disabled={blocked || undefined} onClick={press("production")}>
+                  <button type="button" className="accent" aria-disabled={blocked || undefined} onClick={press("production")}>
                     Publish to the site
                   </button>
                 </div>

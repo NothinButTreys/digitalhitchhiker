@@ -7,6 +7,8 @@ type Props = {
   photo: PhotoOut;
   /** What to call the photograph in control names: its title, or "Untitled photograph 2". */
   name: string;
+  /** True while this photograph is the one open in the editor. */
+  editing?: boolean;
   onToggle: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -25,7 +27,7 @@ type ViewProps = Props & {
  * then its controls and title appear over it. "Needs text" is a state, not a
  * control, so that one label always shows.
  */
-function TileView({ photo, name, number, onToggle, onEdit, onDelete, itemProps, handleProps }: ViewProps) {
+function TileView({ photo, name, editing, number, onToggle, onEdit, onDelete, itemProps, handleProps }: ViewProps) {
   const needsText = photo.textStatus === "needs_text";
   const tickHint = photo.selected
     ? "Shown on the site. Press to take it off."
@@ -34,7 +36,13 @@ function TileView({ photo, name, number, onToggle, onEdit, onDelete, itemProps, 
       : "Show on the site";
 
   return (
-    <li className="tile" data-photo-id={photo.id} data-shown={photo.selected ? "" : undefined} {...itemProps}>
+    <li
+      className="tile"
+      data-photo-id={photo.id}
+      data-shown={photo.selected ? "" : undefined}
+      data-editing={editing ? "" : undefined}
+      {...itemProps}
+    >
       <img
         src={photo.previewUrl}
         alt={photo.alt || "Untitled photograph"}
@@ -45,6 +53,12 @@ function TileView({ photo, name, number, onToggle, onEdit, onDelete, itemProps, 
         onClick={onEdit}
       />
       {needsText && <span className="tile-badge label">Needs text</span>}
+      {/* A shown photograph always carries its place in the order. */}
+      {number !== undefined && (
+        <span className="tile-number" aria-hidden="true">
+          {String(number).padStart(2, "0")}
+        </span>
+      )}
       <div className="tile-top">
         <button
           type="button"
@@ -68,11 +82,6 @@ function TileView({ photo, name, number, onToggle, onEdit, onDelete, itemProps, 
       </div>
       {!needsText && (
         <div className="tile-caption">
-          {number !== undefined && (
-            <span className="tile-number label" aria-hidden="true">
-              {number}
-            </span>
-          )}
           <span className="tile-title">{photo.title}</span>
           {handleProps && (
             <button type="button" className="icon-button grip" aria-label={`Reorder ${name}`} title="Drag to reorder" {...handleProps}>

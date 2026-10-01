@@ -13,6 +13,7 @@ import {
 import {
   SortableContext,
   arrayMove,
+  horizontalListSortingStrategy,
   rectSortingStrategy,
   sortableKeyboardCoordinates,
   useSortable,
@@ -29,13 +30,15 @@ const HOLD_MS = 300;
 /** A click this soon after a drag ends belongs to the drag (the release), not to the person. */
 const AFTER_DRAG_MS = 400;
 
+const STRATEGIES = { grid: rectSortingStrategy, strip: horizontalListSortingStrategy, list: verticalListSortingStrategy };
+
 type DragState = { active: boolean; endedAt: number };
 const DragStateContext = createContext<{ current: DragState } | null>(null);
 
 type Props = {
   ids: string[];
-  /** A grid of tiles, or a single column of rows. */
-  layout: "grid" | "list";
+  /** A grid of tiles, a single row that scrolls sideways, or a single column. */
+  layout: "grid" | "strip" | "list";
   /** True while a change is being saved, so a second move cannot overtake it. */
   disabled?: boolean;
   /** What to call an item when announcing a move to a screen reader. */
@@ -126,7 +129,7 @@ export function Sortable({ ids, layout, disabled = false, nameOf, onReorder, chi
       onDragEnd={finish}
       onDragCancel={settle}
     >
-      <SortableContext items={ids} strategy={layout === "grid" ? rectSortingStrategy : verticalListSortingStrategy} disabled={disabled}>
+      <SortableContext items={ids} strategy={STRATEGIES[layout]} disabled={disabled}>
         <DragStateContext.Provider value={drag}>{children}</DragStateContext.Provider>
       </SortableContext>
     </DndContext>

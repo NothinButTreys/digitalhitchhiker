@@ -217,7 +217,7 @@ test("create a category, land in it, upload, write text, show, reorder three way
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 
-  await page.getByRole("navigation", { name: "Categories" }).getByRole("link", { name: "All", exact: true }).click();
+  await page.getByRole("navigation", { name: "Categories" }).getByRole("link", { name: "All categories", exact: true }).click();
   const row = page.getByRole("main").getByRole("listitem").filter({ has: page.getByRole("link", { name: title }) });
   await expect(row.getByText("2 photographs, 2 shown")).toBeVisible();
   await expect(row.getByText("Live")).toBeVisible();
@@ -246,8 +246,8 @@ test("create a category, land in it, upload, write text, show, reorder three way
   await page.getByRole("button", { name: `Hide ${title}` }).click();
   await expect(row.getByText("Hidden", { exact: true })).toBeVisible();
 
-  // A category row is dragged by its link as readily as by anything else on
-  // it. Letting go must put the row down, not follow the link.
+  // A category card is dragged by its link as readily as by anything else on
+  // it. Letting go must put the card down, not follow the link.
   if (testInfo.project.name === "desktop") {
     const rows = page.locator(".rows > li");
     const names = () => rows.getByRole("link").allTextContents();
@@ -257,10 +257,11 @@ test("create a category, land in it, upload, write text, show, reorder three way
     const link = page.getByRole("main").getByRole("link", { name: title });
     const from = (await link.boundingBox())!;
     const to = (await rows.first().boundingBox())!;
+    // The cards sit in a grid, so the last one is carried to the middle of the first.
     await page.mouse.move(from.x + 20, from.y + from.height / 2);
     await page.mouse.down();
     await page.mouse.move(from.x + 20, from.y + from.height / 2 - 20, { steps: 4 });
-    await page.mouse.move(from.x + 20, to.y + 10, { steps: 12 });
+    await page.mouse.move(to.x + to.width / 2 - 10, to.y + to.height / 2, { steps: 16 });
     await page.mouse.up();
     await expect.poll(names).toEqual([title, ...before.slice(0, -1)]);
     await expect(page.getByRole("heading", { level: 1, name: "Library" })).toBeVisible();
