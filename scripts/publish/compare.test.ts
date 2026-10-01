@@ -69,12 +69,16 @@ describe("compareToCommitted", () => {
     await rm(path.join(root, "public/photos/city"), { recursive: true });
     expect(await compareToCommitted(root)).toEqual([]);
 
-    // The same photographs in another order are not the same site.
+    // The order is the owner's to choose: the same photographs rearranged are fine.
     await write("content/sets/zoo.json", twoPhotos([zebra, tiger], "a.jpg"));
+    expect(await compareToCommitted(root)).toEqual([]);
+
+    // A photograph the site never had is not.
+    await write("content/sets/zoo.json", twoPhotos([tiger, { slug: "lion", title: "Lion" }], "a.jpg"));
     expect(await compareToCommitted(root)).toEqual(["content/sets/zoo.json differs"]);
 
-    // Nor is a photograph the site never had.
-    await write("content/sets/zoo.json", twoPhotos([tiger, { slug: "lion", title: "Lion" }], "a.jpg"));
+    // Nor is a photograph whose text changed on the way through.
+    await write("content/sets/zoo.json", twoPhotos([{ slug: "tiger", title: "Tigress" }, zebra], "a.jpg"));
     expect(await compareToCommitted(root)).toEqual(["content/sets/zoo.json differs"]);
   });
 
@@ -102,13 +106,17 @@ describe("compareToCommitted", () => {
     expect(await compareToCommitted(root)).toEqual(["content/sets/zoo.json differs"]);
   });
 
-  it("reports the committed order rearranged", async () => {
+  it("accepts the sets in another order, but not a set named twice or one the site never had", async () => {
     await commitSite();
     await write("content/sets/city.json", set("x.jpg"));
     await write("content/set-order.json", '[\n  "zoo",\n  "city"\n]\n');
     git("add", ".");
     git("commit", "--quiet", "-m", "two sets");
     await write("content/set-order.json", '[\n  "city",\n  "zoo"\n]\n');
+    expect(await compareToCommitted(root)).toEqual([]);
+    await write("content/set-order.json", '[\n  "zoo",\n  "zoo"\n]\n');
+    expect(await compareToCommitted(root)).toEqual(["content/set-order.json differs"]);
+    await write("content/set-order.json", '[\n  "zoo",\n  "harbour"\n]\n');
     expect(await compareToCommitted(root)).toEqual(["content/set-order.json differs"]);
   });
 });

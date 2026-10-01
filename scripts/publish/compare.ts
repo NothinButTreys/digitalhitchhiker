@@ -27,28 +27,24 @@ function withoutSources(raw: string): SetFile {
   return parsed;
 }
 
-/** True when every item of `part` appears in `whole`, in the same order. */
-function inOrderWithin(part: unknown[], whole: unknown[]): boolean {
-  let from = 0;
-  for (const item of part) {
-    const at = whole.findIndex((candidate, index) => index >= from && isDeepStrictEqual(candidate, item));
-    if (at === -1) return false;
-    from = at + 1;
-  }
-  return true;
+/** True when every photograph in `part` is, text and all, one of the photographs in `whole`. */
+function allAmong(part: Photo[], whole: Photo[]): boolean {
+  return part.every((photo) => whole.some((candidate) => isDeepStrictEqual(candidate, photo)));
 }
 
 /**
  * For the one-time check before the library takes over: is what a publish
  * generated a faithful part of the site as it is committed?
  *
- * The library may show fewer photographs than the site does (it shows at
- * most eight in a category), so a committed photograph or set that was not
- * generated is fine. Everything that WAS generated must match what is
- * committed: every image byte for byte, every manifest entry, every set's
- * title, place and description, each photograph's text, and the order of
- * the sets and of the photographs within them. Only the originals' recorded
- * names may differ.
+ * Which photographs are shown, and in what order, is the owner's to choose
+ * in the library, and the library shows at most eight in a category. So a
+ * committed photograph or set that was not generated is fine, and so is a
+ * different order of sets or of photographs within a set. What is checked is
+ * that nothing was altered on the way through: every generated image must
+ * match the committed one byte for byte, every manifest entry must be the
+ * committed one, every set must keep its title, place and description, and
+ * every photograph must keep its address and text. Only the originals'
+ * recorded names may differ.
  *
  * Null when nothing is committed to compare with, which is how things stand
  * once the library has taken over. Every line names a public path only.
@@ -75,12 +71,13 @@ export async function compareToCommitted(root: string): Promise<string[] | null>
   const manifestMatches = Object.entries(now).every(([key, entry]) => isDeepStrictEqual(was[key], entry));
   if (!manifestMatches) differences.push(`${MANIFEST} differs`);
 
-  // The order: the committed order, with only the sets no longer shown left out.
+  // The order: any order of sets the site already has, each named once.
   const orderWas = JSON.parse((await committed(root, ORDER)) ?? "[]") as string[];
   const orderNow = JSON.parse((await generated(root, ORDER)) ?? "[]") as string[];
-  if (!isDeepStrictEqual(orderNow, orderWas.filter((slug) => orderNow.includes(slug)))) differences.push(`${ORDER} differs`);
+  const knownOnce = orderNow.every((slug) => orderWas.includes(slug)) && new Set(orderNow).size === orderNow.length;
+  if (!knownOnce) differences.push(`${ORDER} differs`);
 
-  // Each generated set: the same set, showing some of its photographs in the same order.
+  // Each generated set: the same set, showing some of its photographs, unaltered, in any order.
   const present = (await git(root, ["ls-files", "--cached", "--others", "--exclude-standard", "--", SETS]))
     .split("\n")
     .filter((file) => file.endsWith(".json"));
@@ -94,7 +91,7 @@ export async function compareToCommitted(root: string): Promise<string[] | null>
     }
     const { photos: photosWas = [], ...restWas } = withoutSources(was);
     const { photos: photosNow = [], ...restNow } = withoutSources(now);
-    if (!isDeepStrictEqual(restWas, restNow) || !inOrderWithin(photosNow, photosWas)) differences.push(`${file} differs`);
+    if (!isDeepStrictEqual(restWas, restNow) || !allAmong(photosNow, photosWas)) differences.push(`${file} differs`);
   }
 
   return differences.sort();
