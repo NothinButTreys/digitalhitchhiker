@@ -7,7 +7,6 @@ const SET_FILE = /\/content\/sets\/[^/]+\.json$/;
 /**
  * Drops each photo's `source` (the original's file name) from the content
  * files as they are bundled, so no original file name reaches the browser.
- * `npm run photos` reads the content files from disk and still sees it.
  */
 function stripPhotoSources(): Plugin {
   return {

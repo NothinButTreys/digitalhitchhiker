@@ -43,7 +43,7 @@ describe("buildCatalog", () => {
   it("fails when a photo has no manifest entry", () => {
     expect(() =>
       buildCatalog({ sets: [set("a", ["one"])], manifest: {}, order: ["a"] }),
-    ).toThrow("content/sets/a.json: photo \"one\" has no entry \"a/one\" in manifest.json; run `npm run photos`");
+    ).toThrow("content/sets/a.json: photo \"one\" has no entry \"a/one\" in manifest.json; publish from the library, or run `npm run library:pull`");
   });
 
   it("fails on a duplicate photo slug within a set", () => {

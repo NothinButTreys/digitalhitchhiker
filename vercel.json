@@ -6,6 +6,7 @@
   "outputDirectory": "dist",
   "cleanUrls": true,
   "trailingSlash": false,
+  "git": { "deploymentEnabled": false },
   "headers": [
     {
       "source": "/assets/(.*)",

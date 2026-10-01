@@ -10,7 +10,6 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build && vite build --ssr src/entry-server.tsx --outDir dist-server && tsx scripts/prerender.ts",
     "preview": "serve dist -l 4173",
-    "photos": "tsx scripts/build-photos.ts",
     "library:migrate": "tsx scripts/migrate/run.ts",
     "library:pull": "tsx scripts/publish/run.ts pull",
     "publish:run": "tsx scripts/publish/run.ts publish",

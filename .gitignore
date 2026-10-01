@@ -16,3 +16,9 @@ admin/ui/.env.*
 admin/test-results
 admin/playwright-report
 admin/e2e/fixtures/out
+
+# Written by a publish (or `npm run library:pull`) from the library; never committed.
+content/sets/
+content/set-order.json
+src/data/manifest.json
+public/photos/

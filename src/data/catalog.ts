@@ -35,7 +35,7 @@ export function buildCatalog(input: {
       const entry = manifest[key];
       if (!entry) {
         throw new Error(
-          `${file}: photo "${photo.slug}" has no entry "${key}" in manifest.json; run \`npm run photos\``,
+          `${file}: photo "${photo.slug}" has no entry "${key}" in manifest.json; publish from the library, or run \`npm run library:pull\``,
         );
       }
       const { source: _source, ...shown } = photo;
