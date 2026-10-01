@@ -1,5 +1,3 @@
-import { MAX_SELECTED } from "./photos";
-
 export type SnapshotPhoto = {
   slug: string;
   title: string;
@@ -57,7 +55,6 @@ export async function buildSnapshot(db: D1Database): Promise<{ snapshot: Snapsho
 
   const categories: SnapshotCategory[] = [];
   const problems: string[] = [];
-  const shownCount = new Map<string, number>();
 
   for (const row of results) {
     let category = categories.at(-1);
@@ -71,8 +68,6 @@ export async function buildSnapshot(db: D1Database): Promise<{ snapshot: Snapsho
       };
       categories.push(category);
     }
-    shownCount.set(category.slug, (shownCount.get(category.slug) ?? 0) + 1);
-
     const name = row.title.trim() || "An untitled photograph";
     const complete = row.slug && row.title.trim() && row.alt.trim() && row.description.trim();
     if (row.text_status !== "approved" || !complete) {
@@ -92,12 +87,6 @@ export async function buildSnapshot(db: D1Database): Promise<{ snapshot: Snapsho
       contentType: row.content_type,
       originalName: row.original_name,
     });
-  }
-
-  for (const category of categories) {
-    if ((shownCount.get(category.slug) ?? 0) > MAX_SELECTED) {
-      problems.push(`${category.title} shows more than ${MAX_SELECTED} photographs.`);
-    }
   }
 
   const live = categories.filter((category) => category.photos.length > 0);

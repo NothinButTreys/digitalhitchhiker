@@ -69,11 +69,12 @@ describe("buildSnapshot", () => {
     expect(snapshot.categories[0]!.photos.map((p) => p.slug)).toEqual(["a-one"]);
   });
 
-  it("refuses a category that shows more than eight", async () => {
+  it("publishes a category however many photographs it shows", async () => {
     const a = await seedCategory({ title: "Alpha" });
-    for (let index = 1; index <= 9; index += 1) await seedPhoto(a.id, shown(`p-${index}`, index));
-    const { problems } = await buildSnapshot(env.DB);
-    expect(problems).toEqual(["Alpha shows more than 8 photographs."]);
+    for (let index = 1; index <= 12; index += 1) await seedPhoto(a.id, shown(`p-${index}`, index));
+    const { snapshot, problems } = await buildSnapshot(env.DB);
+    expect(problems).toEqual([]);
+    expect(snapshot.categories[0]!.photos).toHaveLength(12);
   });
 });
 

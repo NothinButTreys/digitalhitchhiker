@@ -24,7 +24,7 @@ const categorySchema = z
     title: text,
     place: text,
     description: text,
-    photos: z.array(photoSchema).min(1, "must show at least one photograph").max(8, "must show at most 8 photographs"),
+    photos: z.array(photoSchema).min(1, "must show at least one photograph"),
   })
   .strict();
 

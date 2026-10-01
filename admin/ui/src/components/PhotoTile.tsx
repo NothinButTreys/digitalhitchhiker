@@ -7,8 +7,6 @@ type Props = {
   photo: PhotoOut;
   /** What to call the photograph in control names: its title, or "Untitled photograph 2". */
   name: string;
-  /** True when eight are already shown, so no more can be ticked. */
-  full: boolean;
   onToggle: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -27,11 +25,8 @@ type ViewProps = Props & {
  * then its controls and title appear over it. "Needs text" is a state, not a
  * control, so that one label always shows.
  */
-function TileView({ photo, name, full, number, onToggle, onEdit, onDelete, itemProps, handleProps }: ViewProps) {
+function TileView({ photo, name, number, onToggle, onEdit, onDelete, itemProps, handleProps }: ViewProps) {
   const needsText = photo.textStatus === "needs_text";
-  // Marked `aria-disabled`, not disabled, so it can still be reached and
-  // read: the note beside the group's heading says why it cannot be ticked.
-  const tickOff = !photo.selected && full;
   const tickHint = photo.selected
     ? "Shown on the site. Press to take it off."
     : needsText
@@ -58,8 +53,7 @@ function TileView({ photo, name, full, number, onToggle, onEdit, onDelete, itemP
           aria-pressed={photo.selected}
           aria-label={`Show ${name} on the site`}
           title={tickHint}
-          aria-disabled={tickOff || undefined}
-          onClick={tickOff ? undefined : onToggle}
+          onClick={onToggle}
         >
           <CheckIcon />
         </button>
