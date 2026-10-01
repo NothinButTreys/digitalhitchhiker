@@ -69,8 +69,33 @@ Photographs awaiting approval are tracked privately, outside this repository.
 ## Adding a set
 
 Create `content/sets/<slug>.json` with `slug`, `title`, `place`,
-`description`, and a `photos` array, add the slug to `setOrder` in
-`src/data/site.ts`, then follow the steps above for each photograph.
+`description`, and a `photos` array, add the slug to `content/set-order.json`,
+then follow the steps above for each photograph.
+
+## Publishing
+
+What the site shows is decided in the library admin (`admin/`). Pressing
+Publish there starts the `Publish` workflow in this repository, which:
+
+1. fetches the list of categories and shown photographs from the admin,
+2. fetches each photograph's images from the library's cache, making them
+   first (with the settings in `scripts/lib/encode.ts`) for any photograph
+   it has not seen before,
+3. writes `content/sets/*.json`, `content/set-order.json`,
+   `src/data/manifest.json`, and `public/photos/`,
+4. runs the unit tests, builds, runs the build checks and the browser tests,
+5. deploys to Vercel, as a preview or to the live site,
+6. tells the admin how it went.
+
+Nothing is deployed unless every check passed.
+
+The workflow needs these repository secrets: `LIBRARY_URL`,
+`LIBRARY_CLIENT_ID`, `LIBRARY_CLIENT_SECRET`, `VERCEL_TOKEN`,
+`VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`.
+
+To work on the site locally with the published photographs, set the three
+`LIBRARY_*` values in your shell (the admin accepts one service token, so
+these are the workflow's own) and run `npm run library:pull`.
 
 ## Deployment
 

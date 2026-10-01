@@ -2,10 +2,12 @@ import { applyD1Migrations, env, SELF } from "cloudflare:test";
 import type { CategoryOut } from "../src/db/categories";
 
 export const OWNER = "owner@example.com";
+export const SERVICE_ID = "publish-workflow.access";
 
 export async function resetDb(): Promise<void> {
   await applyD1Migrations(env.DB, env.TEST_MIGRATIONS);
   await env.DB.batch([
+    env.DB.prepare("DELETE FROM publishes"),
     env.DB.prepare("DELETE FROM uploads"),
     env.DB.prepare("DELETE FROM photos"),
     env.DB.prepare("DELETE FROM categories"),
@@ -26,6 +28,13 @@ export async function api(path: string, init: Init = {}): Promise<Response> {
     body = JSON.stringify(json);
   }
   return SELF.fetch(`https://admin.test${path}`, { ...rest, headers: merged, body });
+}
+
+/** A request as the publish workflow: no owner address, the service's client id instead. */
+export function service(path: string, init: Init = {}): Promise<Response> {
+  const headers = new Headers(init.headers);
+  headers.set("x-dev-service-id", SERVICE_ID);
+  return api(path, { ...init, as: null, headers });
 }
 
 let seedCounter = 0;

@@ -22,13 +22,16 @@
   "r2_buckets": [{ "binding": "BUCKET", "bucket_name": "digital-hitchhiker-library" }],
   "triggers": { "crons": ["0 4 * * *"] },
   "observability": { "enabled": true },
-  // OWNER_EMAIL, ACCESS_TEAM_DOMAIN, ACCESS_AUD, and SERVICE_TOKEN_CLIENT_ID
-  // are not vars: they are Worker secrets, set with `npx wrangler secret put
+  // OWNER_EMAIL, ACCESS_TEAM_DOMAIN, ACCESS_AUD, SERVICE_TOKEN_CLIENT_ID, and
+  // GITHUB_DISPATCH_TOKEN are not vars: they are Worker secrets, set with `npx wrangler secret put
   // <NAME>`. Never add them here: a var and a secret share one name, so a var
   // in this file would overwrite the secret on every deploy. Until they are
   // set the Worker treats them as empty and refuses every request.
   "vars": {
     "ENVIRONMENT": "production",
-    "AUTH_MODE": "access"
+    "AUTH_MODE": "access",
+    "GITHUB_REPO": "NothinButTreys/digitalhitchhiker",
+    "GITHUB_WORKFLOW": "publish.yml",
+    "GITHUB_REF": "master"
   }
 }

@@ -1,15 +1,22 @@
 import { readFileSync } from "node:fs";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { SITE } from "../../src/data/site";
 
 type SetFile = { slug: string; title: string; photos: { slug: string; title: string }[] };
 const readSet = (slug: string) =>
   JSON.parse(readFileSync(`content/sets/${slug}.json`, "utf8")) as SetFile;
-const set = readSet("superstition-mountains");
-const [first, second] = set.photos;
-if (!first || !second) throw new Error("superstition-mountains needs at least two photos");
-const sets = SITE.setOrder.map(readSet);
+const order = JSON.parse(readFileSync("content/set-order.json", "utf8")) as string[];
+const sets = order.map(readSet);
+// The strip tests use whichever set shows the most photographs, so they have
+// frames to move between whatever the library holds.
+const set = [...sets].sort((a, b) => b.photos.length - a.photos.length)[0]!;
+const first = set.photos[0]!;
+// A set may show a single photograph. Tests that need two say so and are
+// skipped; `second` falls back to the first only so it always has a value.
+const hasPair = set.photos.length >= 2;
+const second = set.photos[1] ?? first;
+const hasOther = sets.length >= 2;
+const other = sets.find((each) => each.slug !== set.slug) ?? set;
 
 async function settle(strip: Locator) {
   let last = Number.NaN;
@@ -71,6 +78,7 @@ test.describe("set page", () => {
 
   test("desktop: frames sit side by side", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop", "desktop layout only");
+    test.skip(!hasPair, "needs a set showing two photographs");
     await page.goto(`/${set.slug}`);
     const a = await page.locator(`#${first.slug}`).boundingBox();
     const b = await page.locator(`#${second.slug}`).boundingBox();
@@ -80,6 +88,7 @@ test.describe("set page", () => {
 
   test("phone: frames stack, footer is hidden, heading is shown", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "phone", "phone layout only");
+    test.skip(!hasPair, "needs a set showing two photographs");
     await page.goto(`/${set.slug}`);
     const a = await page.locator(`#${first.slug}`).boundingBox();
     const b = await page.locator(`#${second.slug}`).boundingBox();
@@ -95,7 +104,7 @@ test.describe("set page", () => {
 
   test("desktop: Back from a photograph returns the strip to where it was", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "desktop", "desktop layout only");
-    expect(set.photos.length).toBeGreaterThanOrEqual(4);
+    test.skip(set.photos.length < 4, "needs a set showing four photographs");
     await page.goto(`/${set.slug}`);
     const strip = page.getByRole("region", { name: `${set.title} photographs` });
     const counter = page.getByTestId("counter");
@@ -152,6 +161,7 @@ test.describe("set page", () => {
 
   test("phone: following the next-set link starts the new page at the top", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "phone", "phone layout only");
+    test.skip(!hasOther, "needs two sets");
     const [firstSet, secondSet] = sets;
     await page.goto(`/${firstSet!.slug}`);
     const link = page.getByRole("link", { name: `Next set: ${secondSet!.title}` });
@@ -166,6 +176,7 @@ test.describe("set page", () => {
 
   test("phone held sideways: frames stack and the footer is hidden", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "phone-landscape", "phone-landscape layout only");
+    test.skip(!hasPair, "needs a set showing two photographs");
     await page.goto(`/${set.slug}`);
     const a = await page.locator(`#${first.slug}`).boundingBox();
     const b = await page.locator(`#${second.slug}`).boundingBox();
@@ -190,11 +201,12 @@ test.describe("set page", () => {
 
   test("phone: menu opens and navigates", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "phone", "phone layout only");
+    test.skip(!hasOther, "needs two sets");
     await page.goto(`/${set.slug}`);
     await page.getByRole("button", { name: "Photo sets" }).click();
-    await page.getByRole("navigation", { name: "Photo sets" }).getByRole("link", { name: "Phoenix Zoo" }).click();
-    await expect(page).toHaveURL(/\/phoenix-zoo$/);
-    await expect(page).toHaveTitle("Phoenix Zoo — Digital Hitchhiker");
+    await page.getByRole("navigation", { name: "Photo sets" }).getByRole("link", { name: other.title }).click();
+    await expect(page).toHaveURL(new RegExp(`/${other.slug}$`));
+    await expect(page).toHaveTitle(`${other.title} — Digital Hitchhiker`);
   });
 });
 
@@ -231,6 +243,7 @@ test.describe("header", () => {
 
   test("tablet: menu button replaces inline links while the strip stays horizontal", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "tablet", "tablet layout only");
+    test.skip(!hasPair, "needs a set showing two photographs");
     await page.goto(`/${set.slug}`);
     await expect(page.getByRole("button", { name: "Photo sets" })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Photo sets" })).toBeHidden();
@@ -291,6 +304,7 @@ test.describe("footer", () => {
 
 test.describe("photo page", () => {
   test("opens, moves next, and closes back to the strip", async ({ page }) => {
+    test.skip(!hasPair, "needs a set showing two photographs");
     await page.goto(`/${set.slug}/${first.slug}`);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(first.title);
     await expectNoSeriousViolations(page);
@@ -308,6 +322,7 @@ test.describe("photo page", () => {
   });
 
   test("every control is at least 44 by 44 CSS pixels", async ({ page }) => {
+    test.skip(!hasPair, "needs a set showing two photographs");
     await page.goto(`/${set.slug}/${second.slug}`);
     await expectTapTargets(
       page.locator("header a:visible, header button:visible, .photo-nav a:visible"),
@@ -345,7 +360,7 @@ test("pages hydrate without console errors", async ({ page }) => {
   page.on("pageerror", (error) => errors.push(`${page.url()}: ${error.message}`));
   for (const path of [
     "/",
-    `/${sets[1]!.slug}`,
+    `/${other.slug}`,
     `/${set.slug}#${second.slug}`,
     `/${set.slug}/${first.slug}`,
     "/colophon",

@@ -55,3 +55,13 @@ export function parseManifest(raw: unknown): Manifest {
   if (!result.success) throw new Error(`manifest.json: ${describe(result.error)}`);
   return result.data;
 }
+
+export function parseSetOrder(raw: unknown): string[] {
+  // Built here, not at module level: this module is in the browser bundle
+  // through catalog.ts, and the site never validates the order at run time.
+  const result = z.array(slug).min(1, "must list at least one set").safeParse(raw);
+  if (!result.success) throw new Error(`content/set-order.json: ${describe(result.error)}`);
+  const repeated = result.data.find((entry, index) => result.data.indexOf(entry) !== index);
+  if (repeated) throw new Error(`content/set-order.json: lists "${repeated}" more than once`);
+  return result.data;
+}

@@ -260,6 +260,50 @@ describe("resolveIdentity in dev mode", () => {
   });
 });
 
+describe("resolveIdentity with the dev service header", () => {
+  // The publish workflow's stand-in for a service token, under the same gate
+  // as the dev email header, and compared with SERVICE_TOKEN_CLIENT_ID.
+  const request = (headers: Record<string, string>) => new Request("https://admin.test/api/me", { headers });
+  const devEnv = (ENVIRONMENT: string) => ({ ...base, AUTH_MODE: "dev", ENVIRONMENT });
+
+  it("accepts the configured service id in development and test", async () => {
+    for (const ENVIRONMENT of ["development", "test"]) {
+      expect(await resolveIdentity(request({ "x-dev-service-id": "svc.access" }), devEnv(ENVIRONMENT))).toEqual({
+        kind: "service",
+        clientId: "svc.access",
+      });
+    }
+  });
+
+  it("refuses dev mode in production", async () => {
+    expect(await resolveIdentity(request({ "x-dev-service-id": "svc.access" }), devEnv("production"))).toBeNull();
+  });
+
+  it("ignores the header in access mode", async () => {
+    expect(await resolveIdentity(request({ "x-dev-service-id": "svc.access" }), base)).toBeNull();
+    expect(await resolveIdentity(request({ "x-dev-service-id": "svc.access" }), { ...base, ENVIRONMENT: "test" })).toBeNull();
+  });
+
+  it("lets the owner's address decide when both headers are sent", async () => {
+    const env = devEnv("test");
+    expect(
+      await resolveIdentity(request({ "x-dev-email": "someone@example.com", "x-dev-service-id": "svc.access" }), env),
+    ).toBeNull();
+    expect(
+      await resolveIdentity(request({ "x-dev-email": "owner@example.com", "x-dev-service-id": "svc.access" }), env),
+    ).toEqual({ kind: "owner", email: "owner@example.com" });
+  });
+
+  it("refuses a service id that is not the configured one, and any when none is configured", async () => {
+    const env = devEnv("test");
+    expect(await resolveIdentity(request({ "x-dev-service-id": "other.access" }), env)).toBeNull();
+    expect(await resolveIdentity(request({ "x-dev-service-id": "" }), env)).toBeNull();
+    expect(await resolveIdentity(request({ "x-dev-service-id": "svc.access" }), { ...env, SERVICE_TOKEN_CLIENT_ID: "" })).toBeNull();
+    expect(await resolveIdentity(request({ "x-dev-service-id": "svc.access" }), { ...env, SERVICE_TOKEN_CLIENT_ID: undefined })).toBeNull();
+    expect(await resolveIdentity(request({ "x-dev-service-id": "" }), { ...env, SERVICE_TOKEN_CLIENT_ID: "" })).toBeNull();
+  });
+});
+
 describe("resolveIdentity with the dev cookie", () => {
   // <img> requests carry cookies but not custom headers, so local previews
   // need the dev identity in a cookie too. Only ever under the same gate as

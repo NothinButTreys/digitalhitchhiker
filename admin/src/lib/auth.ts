@@ -130,8 +130,12 @@ export async function resolveIdentity(
     // The cookie exists for <img> requests, which cannot carry the header.
     // It is read only here, under exactly the header's gate; when both are
     // present the header wins.
-    const email = request.headers.get("x-dev-email") ?? cookieValue(request, DEV_EMAIL_COOKIE) ?? "";
-    return identityFromClaims({ email }, env);
+    const email = request.headers.get("x-dev-email") ?? cookieValue(request, DEV_EMAIL_COOKIE);
+    if (email !== null) return identityFromClaims({ email }, env);
+    // The publish workflow's stand-in, under the same gate. It is checked
+    // against SERVICE_TOKEN_CLIENT_ID exactly as a real service token is.
+    const serviceId = request.headers.get("x-dev-service-id");
+    return serviceId === null ? null : identityFromClaims({ common_name: serviceId }, env);
   }
   return null;
 }
@@ -145,5 +149,10 @@ export const requireIdentity = createMiddleware<AppEnv>(async (c, next) => {
 
 export const requireOwner = createMiddleware<AppEnv>(async (c, next) => {
   if (c.get("identity").kind !== "owner") throw forbidden();
+  await next();
+});
+
+export const requireService = createMiddleware<AppEnv>(async (c, next) => {
+  if (c.get("identity").kind !== "service") throw forbidden();
   await next();
 });

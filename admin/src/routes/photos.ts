@@ -60,6 +60,18 @@ async function deleteAll(bucket: R2Bucket, keys: string[]): Promise<void> {
   }
 }
 
+/** Lists and deletes everything stored under `derived/<hash>/`. */
+async function sweepDerived(bucket: R2Bucket, contentHash: string): Promise<void> {
+  const keys: string[] = [];
+  let cursor: string | undefined;
+  do {
+    const listed = await bucket.list({ prefix: `derived/${contentHash}/`, cursor });
+    keys.push(...listed.objects.map((object) => object.key));
+    cursor = listed.truncated ? listed.cursor : undefined;
+  } while (cursor);
+  await deleteAll(bucket, keys);
+}
+
 export const photos = new Hono<AppEnv>();
 export const categoryPhotos = new Hono<AppEnv>();
 
@@ -202,19 +214,13 @@ photos.delete("/:id", async (c) => {
   const row = await getPhotoRow(c.env.DB, id);
   if (!row) throw notFound("photograph");
 
-  const keys = [row.original_key, row.preview_key];
-  let cursor: string | undefined;
-  do {
-    const listed = await c.env.BUCKET.list({ prefix: `derived/${row.content_hash}/`, cursor });
-    keys.push(...listed.objects.map((object) => object.key));
-    cursor = listed.truncated ? listed.cursor : undefined;
-  } while (cursor);
   // Files are removed before the database row: the owner's concern is a withdrawn,
   // private photograph's files lingering in storage, so we would rather risk a
   // dangling row (files already gone, row still present — safe, and the delete can
   // simply be retried) than the reverse (row gone, files orphaned in R2 with nothing
   // in the API able to find or remove them again).
-  await deleteAll(c.env.BUCKET, keys);
+  await deleteAll(c.env.BUCKET, [row.original_key, row.preview_key]);
+  await sweepDerived(c.env.BUCKET, row.content_hash);
 
   const remaining = (await selectedIds(c.env.DB, row.category_id)).filter((existing) => existing !== id);
   // Batched: the row delete and the renumbering of the category's remaining
@@ -224,5 +230,17 @@ photos.delete("/:id", async (c) => {
     c.env.DB.prepare("DELETE FROM photos WHERE id = ?").bind(id),
     ...renumberStatements(c.env.DB, remaining),
   ]);
+  // A generated file may have been stored while this delete was running: the
+  // workflow's PUT checks the row, stores, then checks again, and can pass both
+  // checks before the row above was removed yet land after the first sweep
+  // listed the prefix. Once the row is gone no new file is kept (the PUT
+  // removes its own), so one more pass here finds every file that slipped in.
+  // The delete is complete by now: a failure here must not become a 500 that a
+  // retry would then answer with 404.
+  try {
+    await sweepDerived(c.env.BUCKET, row.content_hash);
+  } catch (error) {
+    console.error("Could not sweep generated files after deleting a photograph", error);
+  }
   return c.body(null, 204);
 });

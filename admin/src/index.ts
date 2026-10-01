@@ -1,9 +1,12 @@
 import { Hono } from "hono";
+import { failStalePublishes } from "./db/publishes";
 import type { AppEnv, Env } from "./env";
 import { requireIdentity, requireOwner } from "./lib/auth";
 import { ApiError } from "./lib/errors";
 import { categories } from "./routes/categories";
 import { categoryPhotos, photos } from "./routes/photos";
+import { publishes } from "./routes/publishes";
+import { service } from "./routes/service";
 import { cleanUpStaleUploads, uploads } from "./routes/uploads";
 
 const app = new Hono<AppEnv>();
@@ -14,12 +17,17 @@ app.use("/api/*", requireIdentity);
 
 app.get("/api/me", (c) => c.json(c.get("identity")));
 
+// Mounted before the owner's router and with its own gate: a service
+// identity reaches only these, and the owner reaches none of them.
+app.route("/api/service", service);
+
 const owner = new Hono<AppEnv>();
 owner.use("*", requireOwner);
 owner.route("/categories", categories);
 owner.route("/categories", categoryPhotos);
 owner.route("/photos", photos);
 owner.route("/uploads", uploads);
+owner.route("/publishes", publishes);
 app.route("/api", owner);
 
 // Static files are served by the assets layer before the Worker runs.
@@ -39,6 +47,7 @@ export default {
   fetch: app.fetch,
   async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext) {
     ctx.waitUntil(cleanUpStaleUploads(env, new Date()));
+    ctx.waitUntil(failStalePublishes(env.DB, new Date()));
   },
 };
 

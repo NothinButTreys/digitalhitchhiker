@@ -1,5 +1,5 @@
 import type { Prepared } from "./prepare-upload";
-import type { CategoryInput, CategoryOut, CategoryPatch, PhotoOut } from "./types";
+import type { CategoryInput, CategoryOut, CategoryPatch, PhotoOut, PublishOut, PublishState, PublishTarget } from "./types";
 
 export class ApiRequestError extends Error {
   constructor(
@@ -114,6 +114,8 @@ export function createApi(fetchImpl: typeof fetch = fetch, devEmail?: string) {
     movePhoto: (id: string, categoryId: string) =>
       request<PhotoOut>(`/api/photos/${id}/category`, { method: "PUT", json: { categoryId } }),
     deletePhoto: (id: string) => request<void>(`/api/photos/${id}`, { method: "DELETE" }),
+    publishState: () => request<PublishState>("/api/publishes/state"),
+    startPublish: (target: PublishTarget) => request<PublishOut>("/api/publishes", { method: "POST", json: { target } }),
     upload: async (categoryId: string, prepared: Prepared): Promise<PhotoOut> => {
       const attempt = async (): Promise<PhotoOut> => {
         const { id } = await request<{ id: string }>("/api/uploads", {

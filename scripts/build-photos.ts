@@ -1,9 +1,6 @@
-import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { promisify } from "node:util";
-import sharp from "sharp";
 import { widthsFor } from "../src/data/photo-url";
 import { parseSetContent, type Manifest } from "../src/data/schema";
 import {
@@ -11,13 +8,11 @@ import {
   expectedFiles,
   isStale,
   outputFile,
-  outputWidths,
   requireSource,
-  toHex,
 } from "./lib/photo-plan";
+import { encodeVariant, manifestEntry, measure, readable } from "./lib/encode";
 import { removeUnexpected } from "./lib/prune";
 
-const run = promisify(execFile);
 const ORIGINALS =
   process.env.DH_ORIGINALS ?? path.join(os.homedir(), "Pictures/Digital Hitchhiker/Originals");
 const CONTENT_DIR = "content/sets";
@@ -29,13 +24,6 @@ async function mtime(file: string): Promise<number | null> {
   } catch {
     return null;
   }
-}
-
-async function readable(source: string, tmpDir: string): Promise<string> {
-  if (!/\.heic$/i.test(source)) return source;
-  const converted = path.join(tmpDir, `${path.basename(source)}.jpg`);
-  await run("sips", ["-s", "format", "jpeg", "-s", "formatOptions", "100", source, "--out", converted]);
-  return converted;
 }
 
 async function build(tmpDir: string) {
@@ -56,40 +44,22 @@ async function build(tmpDir: string) {
       }
 
       const input = await readable(source, tmpDir);
-      const meta = await sharp(input).metadata();
-      const turned = (meta.orientation ?? 1) >= 5;
-      const intrinsicWidth = turned ? meta.height : meta.width;
-      const intrinsicHeight = turned ? meta.width : meta.height;
-      if (!intrinsicWidth || !intrinsicHeight) {
+      const intrinsic = await measure(input);
+      if (!intrinsic) {
         throw new Error(`${file}: photo "${photo.slug}": cannot read dimensions of ${source}`);
       }
+      const entry = await manifestEntry(input, intrinsic);
 
-      const widths = outputWidths(intrinsicWidth);
       for (const ext of ["avif", "jpg"] as const) {
-        for (const width of widthsFor(widths, ext)) {
+        for (const width of widthsFor(entry.widths, ext)) {
           const out = outputFile(set.slug, photo.slug, width, ext);
           if (!isStale(sourceMtime, await mtime(out))) continue;
-          const resized = sharp(input)
-            .rotate()
-            .resize({ width, withoutEnlargement: true })
-            .keepIccProfile();
-          if (ext === "avif") {
-            await resized.avif({ quality: 70, chromaSubsampling: "4:4:4", effort: 6 }).toFile(out);
-          } else {
-            await resized.jpeg({ quality: 88, mozjpeg: true }).toFile(out);
-          }
+          await encodeVariant(input, width, ext, out);
           written += 1;
         }
       }
 
-      const largest = Math.max(...widths);
-      const { dominant } = await sharp(input).stats();
-      manifest[`${set.slug}/${photo.slug}`] = {
-        width: largest,
-        height: Math.round((intrinsicHeight * largest) / intrinsicWidth),
-        widths,
-        color: toHex(dominant),
-      };
+      manifest[`${set.slug}/${photo.slug}`] = entry;
     }
   }
 

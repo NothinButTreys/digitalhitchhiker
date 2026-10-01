@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseManifest, parseSetContent } from "./schema";
+import { parseManifest, parseSetContent, parseSetOrder } from "./schema";
 
 const validSet = {
   slug: "phoenix-zoo",
@@ -54,5 +54,18 @@ describe("parseManifest", () => {
   it("rejects a bad colour", () => {
     const m = { "a/b": { width: 1, height: 1, widths: [1], color: "red" } };
     expect(() => parseManifest(m)).toThrow(/manifest\.json: a\/b\.color/);
+  });
+});
+
+describe("parseSetOrder", () => {
+  it("reads the order of the sets", () => {
+    expect(parseSetOrder(["phoenix-zoo", "montreal"])).toEqual(["phoenix-zoo", "montreal"]);
+  });
+
+  it("refuses an order that is empty, repeats a set, or is not a list of slugs", () => {
+    expect(() => parseSetOrder([])).toThrow(/content\/set-order\.json: .*must list at least one set/);
+    expect(() => parseSetOrder(["a", "a"])).toThrow('content/set-order.json: lists "a" more than once');
+    expect(() => parseSetOrder(["Phoenix Zoo"])).toThrow(/content\/set-order\.json: 0: /);
+    expect(() => parseSetOrder({ order: [] })).toThrow(/content\/set-order\.json: /);
   });
 });

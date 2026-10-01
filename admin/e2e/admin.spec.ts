@@ -228,6 +228,24 @@ test("create a category, land in it, upload, write text, show, reorder three way
   await expect(row.getByText("Hidden", { exact: true })).toBeVisible();
   await expect(page.getByText(`${title} is now hidden from the site.`)).toBeAttached();
 
+  // Publish: says what would go out. The test server has no token for
+  // starting the workflow, so pressing it shows the refusal, not a publish.
+  // Hidden categories are not published, so what is ready is counted first.
+  await page.getByRole("button", { name: `Show ${title}` }).click();
+  await expect(row.getByText("Live", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: /^Publish/ }).click();
+  const publishDialog = page.getByRole("dialog", { name: "Publish" });
+  await expect(publishDialog.getByText(/photographs? are ready to go on the site\./)).toBeVisible();
+  await expect(publishDialog.getByText("The site has not been published from the library yet.")).toBeVisible();
+  await noSeriousViolations(page);
+  await controlsAreLargeEnough(page);
+  await publishDialog.getByRole("button", { name: "Preview first" }).click();
+  await expect(publishDialog.getByRole("alert").first()).toContainText("Publishing is not set up yet");
+  await publishDialog.getByRole("button", { name: "Close" }).click();
+  await expect(publishDialog).toBeHidden();
+  await page.getByRole("button", { name: `Hide ${title}` }).click();
+  await expect(row.getByText("Hidden", { exact: true })).toBeVisible();
+
   // A category row is dragged by its link as readily as by anything else on
   // it. Letting go must put the row down, not follow the link.
   if (testInfo.project.name === "desktop") {
@@ -247,7 +265,10 @@ test("create a category, land in it, upload, write text, show, reorder three way
     await expect.poll(names).toEqual([title, ...before.slice(0, -1)]);
     await expect(page.getByRole("heading", { level: 1, name: "Library" })).toBeVisible();
     expect(new URL(page.url()).pathname).toBe("/");
-    // And a plain click on the same link still goes there.
+    // And a plain click on the same link still goes there. The new order shows
+    // at once, so this test reaches the click within the moment after a drag
+    // in which clicks are discarded; a person cannot, so it waits as one would.
+    await page.waitForTimeout(150);
     await link.click();
     await expect(page.getByRole("heading", { level: 1, name: title })).toBeFocused();
     await expect(page).toHaveTitle(`${title} — Library — Digital Hitchhiker`);
