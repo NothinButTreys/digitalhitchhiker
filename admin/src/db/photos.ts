@@ -1,5 +1,3 @@
-export const MAX_SELECTED = 8;
-
 export type PhotoOut = {
   id: string;
   categoryId: string;

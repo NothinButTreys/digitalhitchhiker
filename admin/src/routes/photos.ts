@@ -6,7 +6,6 @@ import {
   getPhoto,
   getPhotoRow,
   listPhotos,
-  MAX_SELECTED,
   photoOut,
   renumberSelection,
   renumberStatements,
@@ -134,18 +133,17 @@ photos.put("/:id/selected", async (c) => {
   const now = new Date().toISOString();
 
   if (selected && row.selected === 0) {
-    // Single statement: the count of already-selected photographs and the write that
-    // selects this one both happen inside one conditional UPDATE, so two concurrent
-    // selections can never both read "fewer than 8 selected" and both proceed, and
-    // they can never compute the same next position — D1 runs the statement (subqueries
-    // included) atomically, so a second request's count can only see the first
-    // request's write already landed, never a state in between.
+    // Single statement: the count of already-shown photographs and the write that
+    // shows this one happen inside one UPDATE, so two concurrent selections can never
+    // compute the same next position — D1 runs the statement (subquery included)
+    // atomically, so a second request's count can only see the first request's write
+    // already landed, never a state in between. A category may show any number.
     //
-    // Both subqueries are correlated to `photos.category_id` — the updated row's OWN
+    // The subquery is correlated to `photos.category_id` — the updated row's OWN
     // category at the moment this statement runs — rather than a category id bound
     // from the earlier `getPhotoRow` read above. If another request moves this same
-    // photograph to a different category between that read and this UPDATE, the limit
-    // is still checked against wherever the row actually is when the statement executes,
+    // photograph to a different category between that read and this UPDATE, it is
+    // still numbered within wherever the row actually is when the statement executes,
     // never the category it used to be in.
     const result = await c.env.DB.prepare(
       `UPDATE photos
@@ -154,20 +152,16 @@ photos.put("/:id/selected", async (c) => {
              updated_at = ?
        WHERE id = ?
          AND selected = 0
-         AND text_status = 'approved'
-         AND (SELECT COUNT(*) FROM photos AS other WHERE other.category_id = photos.category_id AND other.selected = 1) < ?`,
+         AND text_status = 'approved'`,
     )
-      .bind(now, id, MAX_SELECTED)
+      .bind(now, id)
       .run();
 
     if (result.meta.changes === 0) {
       const current = await getPhotoRow(c.env.DB, id);
       if (!current) throw notFound("photograph");
       if (current.selected === 1) return c.json(photoOut(current));
-      if (current.text_status !== "approved") {
-        throw conflict("text_not_approved", "Approve this photograph's title and descriptions before selecting it.");
-      }
-      throw conflict("selection_full", `A category can show at most ${MAX_SELECTED} photographs. Deselect one first.`);
+      throw conflict("text_not_approved", "Approve this photograph's title and descriptions before selecting it.");
     }
   } else if (!selected && row.selected === 1) {
     const remaining = (await selectedIds(c.env.DB, row.category_id)).filter((existing) => existing !== id);

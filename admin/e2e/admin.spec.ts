@@ -71,7 +71,7 @@ test("create a category, land in it, upload, write text, show, reorder three way
   // Creating a category goes straight into it.
   await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Categories" }).getByRole("link", { name: title })).toHaveAttribute("aria-current", "page");
-  await expect(page.getByText("0 of 8 shown. Aim for about six.")).toBeVisible();
+  await expect(page.getByText("0 shown", { exact: true })).toBeVisible();
   await expect(page.getByText("No photographs yet. Add some above.")).toBeVisible();
 
   const desert = await uniqueFixture("desert.jpg", testInfo);
@@ -113,7 +113,7 @@ test("create a category, land in it, upload, write text, show, reorder three way
     await expect(page.getByRole("button", { name: `Show ${text.title} on the site` })).toHaveAttribute("aria-pressed", "true");
   }
 
-  await expect(page.getByText("2 of 8 shown. Aim for about six.")).toBeVisible();
+  await expect(page.getByText("2 shown", { exact: true })).toBeVisible();
   const shown = page.getByRole("region", { name: "Shown on the site" });
   await expect(shown.getByRole("img")).toHaveCount(2);
   const order = () => shown.getByRole("img").evaluateAll((images) => images.map((img) => img.getAttribute("alt")));
@@ -206,11 +206,11 @@ test("create a category, land in it, upload, write text, show, reorder three way
 
   // The tick takes a photograph off the site and puts it back.
   await page.getByRole("button", { name: "Show Desert on the site" }).click();
-  await expect(page.getByText("1 of 8 shown. Aim for about six.")).toBeVisible();
+  await expect(page.getByText("1 shown", { exact: true })).toBeVisible();
   await expect(rest.getByRole("img", { name: DESERT })).toBeVisible();
   await expect(page.getByRole("button", { name: "Show Desert on the site" })).toBeFocused();
   await page.getByRole("button", { name: "Show Desert on the site" }).click();
-  await expect(page.getByText("2 of 8 shown. Aim for about six.")).toBeVisible();
+  await expect(page.getByText("2 shown", { exact: true })).toBeVisible();
 
   await noSeriousViolations(page);
   await controlsAreLargeEnough(page);

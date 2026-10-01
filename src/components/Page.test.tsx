@@ -3,13 +3,17 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { fixture } from "../lib/fixture";
+import { recallPosition, rememberPosition } from "../lib/strip-position";
 import { Page } from "./Page";
 
 beforeAll(() => {
   window.matchMedia = (query: string) =>
     ({ matches: false, media: query, addEventListener() {}, removeEventListener() {} }) as unknown as MediaQueryList;
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  window.sessionStorage.clear();
+});
 
 function renderAt(path: string) {
   return render(
@@ -92,5 +96,36 @@ describe("Page", () => {
     expect(mark?.getAttribute("viewBox")).toBe("0 0 32 32");
     expect(mark?.querySelectorAll("circle, path")).toHaveLength(3);
     expect(container.querySelector(".wordmark")?.textContent).toBe("Digital Hitchhiker");
+  });
+
+  describe("the place kept in a set's strip", () => {
+    const nav = () => screen.getByRole("navigation", { name: "Photo sets" });
+    const strip = (name: string) => screen.getByRole("region", { name: `${name} photographs` });
+
+    it("starts a set from its first photograph once the visitor has been to another set", () => {
+      renderAt("/desert");
+      rememberPosition("desert", 900);
+      fireEvent.click(within(nav()).getByRole("link", { name: "City" }));
+      expect(recallPosition("desert")).toBeNull();
+      fireEvent.click(within(nav()).getByRole("link", { name: "Desert" }));
+      expect(strip("Desert").scrollLeft).toBe(0);
+    });
+
+    it("starts a set from its first photograph after a visit to the colophon", () => {
+      renderAt("/desert");
+      rememberPosition("desert", 900);
+      fireEvent.click(within(nav()).getByRole("link", { name: "Colophon" }));
+      fireEvent.click(within(nav()).getByRole("link", { name: "Desert" }));
+      expect(strip("Desert").scrollLeft).toBe(0);
+    });
+
+    it("returns to the same place after looking at one of the set's own photographs", () => {
+      renderAt("/desert");
+      rememberPosition("desert", 900);
+      fireEvent.click(screen.getByRole("link", { name: "two" }));
+      expect(screen.getByRole("article")).toBeTruthy();
+      fireEvent.click(within(nav()).getByRole("link", { name: "Desert" }));
+      expect(strip("Desert").scrollLeft).toBe(900);
+    });
   });
 });

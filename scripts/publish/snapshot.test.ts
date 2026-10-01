@@ -20,11 +20,16 @@ describe("parseSnapshot", () => {
     expect(parseSnapshot(valid)).toEqual(valid);
   });
 
+  it("accepts a category showing more than eight photographs", () => {
+    const twelve = Array.from({ length: 12 }, (_, i) => ({ ...photo, slug: `p-${i}` }));
+    const snapshot = { ...valid, categories: [{ ...valid.categories[0], photos: twelve }] };
+    expect(parseSnapshot(snapshot).categories[0]!.photos).toHaveLength(12);
+  });
+
   it.each([
     ["a newer version", { ...valid, version: 2 }],
     ["no categories", { ...valid, categories: [] }],
     ["a category with no photographs", { ...valid, categories: [{ ...valid.categories[0], photos: [] }] }],
-    ["nine photographs in a category", { ...valid, categories: [{ ...valid.categories[0], photos: Array.from({ length: 9 }, (_, i) => ({ ...photo, slug: `p-${i}` })) }] }],
     ["a slug that is not an address", { ...valid, categories: [{ ...valid.categories[0], slug: "Phoenix Zoo" }] }],
     ["a hash that is not a hash", { ...valid, categories: [{ ...valid.categories[0], photos: [{ ...photo, contentHash: "../../etc" }] }] }],
     ["empty alt text", { ...valid, categories: [{ ...valid.categories[0], photos: [{ ...photo, alt: " " }] }] }],

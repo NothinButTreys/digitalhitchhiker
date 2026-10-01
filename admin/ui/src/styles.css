@@ -171,9 +171,8 @@ label input, label textarea, label select { font-size: 15px; letter-spacing: 0; 
 /* Category: photographs as tiles */
 
 .count { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
-.meter { display: inline-flex; gap: 3px; }
-.meter span { width: 10px; height: 10px; border: 1px solid var(--muted); }
-.meter span[data-on] { background: var(--text); border-color: var(--text); }
+.meter { display: inline-flex; flex-wrap: wrap; gap: 3px; }
+.meter span { width: 10px; height: 10px; background: var(--text); }
 
 .group { display: flex; flex-direction: column; gap: 14px; }
 .group-head { display: flex; flex-wrap: wrap; gap: 4px 20px; align-items: baseline; }

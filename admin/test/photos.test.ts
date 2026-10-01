@@ -182,20 +182,19 @@ describe("selecting", () => {
     expect((await json(response)).error).toBe("text_not_approved");
   });
 
-  it("refuses a ninth selection and allows it after one is deselected", async () => {
+  it("shows as many photographs in a category as are ticked", async () => {
     const category = await seedCategory();
-    const selected: string[] = [];
     for (let position = 1; position <= 8; position += 1) {
-      selected.push(await seedPhoto(category.id, { ...approved, selected: 1, position }));
+      await seedPhoto(category.id, { ...approved, selected: 1, position });
     }
     const ninth = await seedPhoto(category.id, approved);
-    const refused = await api(`/api/photos/${ninth}/selected`, { method: "PUT", json: { selected: true } });
-    expect(refused.status).toBe(409);
-    expect((await json(refused)).error).toBe("selection_full");
+    const tenth = await seedPhoto(category.id, approved);
 
-    await api(`/api/photos/${selected[0]}/selected`, { method: "PUT", json: { selected: false } });
-    const allowed = await api(`/api/photos/${ninth}/selected`, { method: "PUT", json: { selected: true } });
-    expect(await json(allowed)).toMatchObject({ selected: true, position: 8 });
+    const first = await api(`/api/photos/${ninth}/selected`, { method: "PUT", json: { selected: true } });
+    expect(first.status).toBe(200);
+    expect(await json(first)).toMatchObject({ selected: true, position: 9 });
+    const second = await api(`/api/photos/${tenth}/selected`, { method: "PUT", json: { selected: true } });
+    expect(await json(second)).toMatchObject({ selected: true, position: 10 });
   });
 
   it("does not count another category's selections", async () => {
@@ -228,7 +227,7 @@ describe("selecting", () => {
     expect(photos.find((p: any) => p.id === a)).toMatchObject({ selected: false, position: 0 });
   });
 
-  it("holds the limit of eight when two selections race", async () => {
+  it("gives each its own place when two selections race past eight", async () => {
     const category = await seedCategory();
     for (let position = 1; position <= 7; position += 1) {
       await seedPhoto(category.id, { ...approved, selected: 1, position });
@@ -236,19 +235,16 @@ describe("selecting", () => {
     const eighth = await seedPhoto(category.id, approved);
     const ninth = await seedPhoto(category.id, approved);
 
-    const [first, second] = await Promise.all([
+    const responses = await Promise.all([
       api(`/api/photos/${eighth}/selected`, { method: "PUT", json: { selected: true } }),
       api(`/api/photos/${ninth}/selected`, { method: "PUT", json: { selected: true } }),
     ]);
-    const statuses = [first.status, second.status].sort();
-    expect(statuses).toEqual([200, 409]);
-    const refused = first.status === 409 ? first : second;
-    expect((await json(refused)).error).toBe("selection_full");
+    expect(responses.map((response) => response.status)).toEqual([200, 200]);
 
     const { photos } = await json(await api(`/api/categories/${category.id}/photos`));
     const selectedPhotos = photos.filter((p: any) => p.selected);
-    expect(selectedPhotos).toHaveLength(8);
-    expect(selectedPhotos.map((p: any) => p.position).sort((x: number, y: number) => x - y)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    expect(selectedPhotos).toHaveLength(9);
+    expect(selectedPhotos.map((p: any) => p.position).sort((x: number, y: number) => x - y)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
   });
 
   it("assigns distinct positions when several selections race from empty", async () => {
@@ -289,7 +285,7 @@ describe("selecting", () => {
     );
   }
 
-  it("holds the limit against the photograph's current category when a move races with a select", async () => {
+  it("keeps both categories in order when a move races with a select", async () => {
     const a = await seedCategory();
     const b = await seedCategory();
     for (let position = 1; position <= 8; position += 1) {
@@ -302,37 +298,34 @@ describe("selecting", () => {
       api(`/api/photos/${id}/selected`, { method: "PUT", json: { selected: true } }),
     ]);
 
-    // Single end state either order lands in: the photograph is in B, unselected.
-    // - If the move's write lands first, the photograph is already in B (which has
-    //   8 selected) by the time the select's UPDATE runs, so the select's correlated
-    //   subquery counts B's 8 and refuses (selection_full) — the photograph stays
-    //   unselected in B.
-    // - If the select's write lands first, it runs while the photograph is still in
-    //   A (0 selected), so it succeeds and selects the photograph in A — but the move
-    //   that follows unconditionally deselects a photograph as part of moving it
-    //   (`selected = 0, position = 0`, regardless of its selected state going in), so
-    //   it still ends up in B, unselected.
-    // Both orders leave B at 8 selected (never 9) and the photograph in B, unselected.
+    // Either order of the two writes ends with the photograph in B:
+    // - If the move lands first, the select runs on a photograph already in B and
+    //   shows it there, numbered after B's eight (its place is counted in the
+    //   category the row is in when the statement runs, not the one read earlier).
+    // - If the select lands first, it is shown in A, and the move that follows
+    //   takes it to B unshown, as a move always does.
+    // In both, the shown photographs of each category are numbered 1, 2, 3, …
     const photo = await json(await api(`/api/photos/${id}`));
-    expect(photo).toMatchObject({ categoryId: b.id, selected: false });
+    expect(photo.categoryId).toBe(b.id);
 
     const { photos: aPhotos } = await json(await api(`/api/categories/${a.id}/photos`));
     const { photos: bPhotos } = await json(await api(`/api/categories/${b.id}/photos`));
-    expect(bPhotos.filter((p: any) => p.selected)).toHaveLength(8);
+    expect(aPhotos.filter((p: any) => p.selected)).toHaveLength(0);
+    expect(bPhotos.filter((p: any) => p.selected)).toHaveLength(photo.selected ? 9 : 8);
     expectConsecutivePositions(aPhotos);
     expectConsecutivePositions(bPhotos);
   });
 
-  it("checks the limit against the photograph's own category, not any other, deterministically", async () => {
+  it("numbers a newly shown photograph within its own category, not any other", async () => {
     const a = await seedCategory();
     const b = await seedCategory();
     for (let position = 1; position <= 8; position += 1) {
       await seedPhoto(b.id, { ...approved, selected: 1, position });
     }
-    const inFullCategory = await seedPhoto(b.id, approved);
-    const refused = await api(`/api/photos/${inFullCategory}/selected`, { method: "PUT", json: { selected: true } });
-    expect(refused.status).toBe(409);
-    expect((await json(refused)).error).toBe("selection_full");
+    const inBusyCategory = await seedPhoto(b.id, approved);
+    const ninth = await api(`/api/photos/${inBusyCategory}/selected`, { method: "PUT", json: { selected: true } });
+    expect(ninth.status).toBe(200);
+    expect(await json(ninth)).toMatchObject({ selected: true, position: 9 });
 
     const inEmptyCategory = await seedPhoto(a.id, approved);
     const allowed = await api(`/api/photos/${inEmptyCategory}/selected`, { method: "PUT", json: { selected: true } });

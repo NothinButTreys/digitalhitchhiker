@@ -38,9 +38,10 @@ export type MigrationPlan = {
 };
 
 /**
- * The library shows at most this many photographs in a category. A set that
+ * How many photographs of a set the migration brings in as shown. A set that
  * shows more on the site today keeps its first eight shown, in order; the
- * rest come in with their text, ready to be ticked, but not shown.
+ * rest come in with their text, ready to be ticked, but not shown. (The
+ * library itself sets no limit: the owner may tick as many as they like.)
  */
 export const MAX_SHOWN = 8;
 

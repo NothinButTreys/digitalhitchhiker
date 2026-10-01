@@ -37,7 +37,7 @@ function allAmong(part: Photo[], whole: Photo[]): boolean {
  * generated a faithful part of the site as it is committed?
  *
  * Which photographs are shown, and in what order, is the owner's to choose
- * in the library, and the library shows at most eight in a category. So a
+ * in the library, however many that is in a category. So a
  * committed photograph or set that was not generated is fine, and so is a
  * different order of sets or of photographs within a set. What is checked is
  * that nothing was altered on the way through: every generated image must

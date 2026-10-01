@@ -13,8 +13,6 @@ import type { PhotoOut } from "../types";
 import { useAction } from "../use-action";
 import { useTitle } from "../use-title";
 
-const MAX_SELECTED = 8;
-
 /** The shown photographs in the given order, then everything else as it was. */
 function inOrder(list: PhotoOut[], ids: string[]): PhotoOut[] {
   const byId = new Map(list.map((photo) => [photo.id, photo]));
@@ -89,7 +87,6 @@ export function CategoryScreen({ api, categoryId }: { api: Api; categoryId: stri
 
   const shown = photos?.filter((photo) => photo.selected) ?? [];
   const rest = photos?.filter((photo) => !photo.selected) ?? [];
-  const full = shown.length >= MAX_SELECTED;
   const status = category?.hidden ? "Hidden" : shown.length > 0 ? "Live" : "Not shown";
 
   // Untitled photographs never carry a title, so several appear on one
@@ -193,7 +190,6 @@ export function CategoryScreen({ api, categoryId }: { api: Api; categoryId: stri
   const tileProps = (photo: PhotoOut) => ({
     photo,
     name: nameOf(photo.id),
-    full,
     onToggle: () => toggle(photo),
     onEdit: () => openEditor(photo),
     onDelete: () => void remove(photo),
@@ -238,12 +234,14 @@ export function CategoryScreen({ api, categoryId }: { api: Api; categoryId: stri
           ) : (
             <div className="screen" ref={tilesRef}>
               <p className="muted count">
-                <span className="meter" aria-hidden="true">
-                  {Array.from({ length: MAX_SELECTED }, (_, index) => (
-                    <span key={index} data-on={index < shown.length ? "" : undefined} />
-                  ))}
-                </span>
-                {shown.length} of {MAX_SELECTED} shown. Aim for about six.
+                {shown.length > 0 && (
+                  <span className="meter" aria-hidden="true">
+                    {shown.map((photo) => (
+                      <span key={photo.id} />
+                    ))}
+                  </span>
+                )}
+                {shown.length} shown
               </p>
 
               <UploadButton
@@ -284,7 +282,6 @@ export function CategoryScreen({ api, categoryId }: { api: Api; categoryId: stri
                   <h2 id="rest-heading" ref={restHeadingRef} tabIndex={-1}>
                     Not shown
                   </h2>
-                  {full && rest.length > 0 && <p className="muted">Eight are shown. Untick one to show another.</p>}
                 </div>
                 {rest.length === 0 && (
                   <p className="muted">{shown.length === 0 ? "No photographs yet. Add some above." : "No other photographs in this category."}</p>

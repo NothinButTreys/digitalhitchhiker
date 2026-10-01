@@ -76,7 +76,7 @@ describe("CategoryScreen", () => {
     renderAt(fakeApi([tiger, zebra, egret, untitled, anotherUntitled]));
     expect((await screen.findByRole("heading", { level: 1 })).textContent).toBe("Phoenix Zoo");
     expect(document.title).toBe("Phoenix Zoo — Library — Digital Hitchhiker");
-    expect(await screen.findByText("2 of 8 shown. Aim for about six.")).toBeTruthy();
+    expect(await screen.findByText("2 shown")).toBeTruthy();
     expect(screen.getByText("Live")).toBeTruthy();
 
     expect(alts("Shown on the site")).toEqual(["A tiger resting", "A zebra grazing"]);
@@ -111,7 +111,7 @@ describe("CategoryScreen", () => {
   it("says so when nothing is shown, and when the category is empty", async () => {
     renderAt(fakeApi([egret]));
     expect(await screen.findByText("Nothing shown yet, so this category is not on the site. Tick a photograph below to show it.")).toBeTruthy();
-    expect(screen.getByText("0 of 8 shown. Aim for about six.")).toBeTruthy();
+    expect(screen.getByText("0 shown")).toBeTruthy();
     expect(screen.getByText("Not shown", { selector: ".status" })).toBeTruthy();
     cleanup();
     renderAt(fakeApi([]));
@@ -126,7 +126,7 @@ describe("CategoryScreen", () => {
     await screen.findByRole("region", { name: "Not shown" });
     await userEvent.click(tick("Egret"));
     expect(setSelected).toHaveBeenCalledWith("egret", true);
-    await waitFor(() => expect(screen.getByText("3 of 8 shown. Aim for about six.")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("3 shown")).toBeTruthy());
     expect(alts("Shown on the site")).toHaveLength(3);
     expect(tick("Egret").getAttribute("aria-pressed")).toBe("true");
     await waitFor(() => expect(document.activeElement).toBe(tick("Egret")));
@@ -140,7 +140,7 @@ describe("CategoryScreen", () => {
     await screen.findByRole("region", { name: "Not shown" });
     await userEvent.click(tick("Tiger"));
     expect(setSelected).toHaveBeenCalledWith("tiger", false);
-    await waitFor(() => expect(screen.getByText("1 of 8 shown. Aim for about six.")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("1 shown")).toBeTruthy());
     expect(alts("Not shown")).toEqual(["A tiger resting"]);
     expect(screen.getByText("Tiger is no longer shown on the site.")).toBeTruthy();
   });
@@ -323,30 +323,35 @@ describe("CategoryScreen", () => {
     expect(dialog.getByRole("status").textContent).toBe("Position 1 of 2 on the site");
   });
 
-  it("stops offering to show more at eight", async () => {
+  it("lets a ninth photograph be shown, and draws one square for each", async () => {
     const eight = Array.from({ length: 8 }, (_, index) =>
       photo({ id: `s${index}`, title: `S${index}`, alt: `Alt ${index}`, textStatus: "approved", selected: true, position: index + 1 }),
     );
-    const api = fakeApi([...eight, egret]);
-    renderAt(api);
+    const ninth = { ...egret, selected: true, position: 9 };
+    const listPhotos = vi.fn().mockResolvedValueOnce([...eight, egret]).mockResolvedValueOnce([...eight, ninth]);
+    const setSelected = vi.fn(async () => ninth);
+    renderAt(fakeApi([], { listPhotos, setSelected } as Partial<Api>));
     await screen.findByRole("region", { name: "Not shown" });
-    const setSelected = api.setSelected as ReturnType<typeof vi.fn>;
-    expect(tick("Egret").getAttribute("aria-disabled")).toBe("true");
+    const squares = () => document.querySelectorAll(".meter span");
+    expect(screen.getByText("8 shown")).toBeTruthy();
+    expect(squares()).toHaveLength(8);
+    expect(screen.queryByText(/Untick one/)).toBeNull();
+
+    expect(tick("Egret").getAttribute("aria-disabled")).toBeNull();
     await userEvent.click(tick("Egret"));
-    expect(setSelected).not.toHaveBeenCalled();
-    expect(tick("S0").getAttribute("aria-disabled")).toBeNull();
-    expect(screen.getByText("Eight are shown. Untick one to show another.")).toBeTruthy();
-    expect(screen.getByText("8 of 8 shown. Aim for about six.")).toBeTruthy();
+    expect(setSelected).toHaveBeenCalledWith("egret", true);
+    await waitFor(() => expect(screen.getByText("9 shown")).toBeTruthy());
+    expect(squares()).toHaveLength(9);
   });
 
   it("shows the server's reason when showing is refused", async () => {
     const setSelected = vi.fn(async () => {
-      throw new ApiRequestError(409, "selection_full", "A category can show at most 8 photographs. Deselect one first.");
+      throw new ApiRequestError(409, "text_not_approved", "Approve this photograph's title and descriptions before selecting it.");
     });
     renderAt(fakeApi([egret], { setSelected } as Partial<Api>));
     await screen.findByRole("region", { name: "Not shown" });
     await userEvent.click(tick("Egret"));
-    expect((await screen.findByRole("alert")).textContent).toContain("at most 8 photographs");
+    expect((await screen.findByRole("alert")).textContent).toContain("Approve this photograph's title");
   });
 
   it("opens the editor and applies its change", async () => {

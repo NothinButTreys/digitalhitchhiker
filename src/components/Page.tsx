@@ -3,15 +3,20 @@ import { useLocation } from "react-router";
 import type { Catalog } from "../data/catalog";
 import { headFor } from "../lib/head";
 import { nextSet, resolve, type Resolved } from "../lib/routes";
+import { forgetPositionUnless } from "../lib/strip-position";
 import { Colophon } from "./Colophon";
 import { NotFound } from "./NotFound";
 import { PhotoView } from "./PhotoView";
 import { SiteHeader } from "./SiteHeader";
 import { Strip } from "./Strip";
 
+/** The set the visitor is in: its strip, or one of its photographs. */
+function setSlug(resolved: Resolved): string | null {
+  return resolved.kind === "set" || resolved.kind === "photo" ? resolved.set.slug : null;
+}
+
 function currentSlug(resolved: Resolved): string | null {
-  if (resolved.kind === "set" || resolved.kind === "photo") return resolved.set.slug;
-  return resolved.kind === "colophon" ? "colophon" : null;
+  return setSlug(resolved) ?? (resolved.kind === "colophon" ? "colophon" : null);
 }
 
 function View({ catalog, resolved }: { catalog: Catalog; resolved: Resolved }) {
@@ -42,6 +47,14 @@ export function Page({ catalog }: { catalog: Catalog }) {
   useEffect(() => {
     document.title = title;
   }, [title]);
+
+  // A set's strip keeps its place only while the visitor stays in that set.
+  // Leaving for another set, or any other page, lets it go, so the set starts
+  // from its first photograph the next time it is opened.
+  const inSet = setSlug(resolved);
+  useEffect(() => {
+    forgetPositionUnless(inSet);
+  }, [inSet]);
 
   // A client-side navigation to a URL without a hash starts at the top of the
   // page; with a hash, the strip scrolls to that frame instead. The first
