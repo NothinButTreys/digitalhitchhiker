@@ -119,6 +119,41 @@ test.describe("set page", () => {
     await expect(counter).toContainText("04 /");
   });
 
+  test("desktop: a set starts from its first photograph after a visit to another set", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "desktop", "desktop layout only");
+    test.skip(!hasPair || !hasOther, "needs two sets, one of them showing two photographs");
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto(`/${set.slug}`);
+    const strip = page.getByRole("region", { name: `${set.title} photographs` });
+    const counter = page.getByTestId("counter");
+    const nav = page.getByRole("navigation", { name: "Photo sets" });
+    const leave = async () => {
+      await strip.focus();
+      await pressNext(page);
+      await expect(counter).toContainText("02 /");
+      await settle(strip);
+      await nav.getByRole("link", { name: other.title, exact: true }).click();
+      // The address changes a moment before the page does; wait for the other set itself.
+      await expect(page.getByRole("region", { name: `${other.title} photographs` })).toBeVisible();
+    };
+    const expectFirst = async () => {
+      await expect(strip).toBeVisible();
+      await settle(strip);
+      expect(await strip.evaluate((element) => element.scrollLeft)).toBe(0);
+      await expect(counter).toContainText("01 /");
+    };
+
+    // Returning by the header.
+    await leave();
+    await nav.getByRole("link", { name: set.title, exact: true }).click();
+    await expectFirst();
+
+    // Returning with the browser's Back button.
+    await leave();
+    await page.goBack();
+    await expectFirst();
+  });
+
   for (const each of sets) {
     test(`desktop: Next reaches the last photograph of ${each.slug}`, async ({ page }, testInfo) => {
       test.skip(!["desktop", "tablet"].includes(testInfo.project.name), "horizontal strip only");

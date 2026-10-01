@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Link } from "react-router";
 import type { PhotoSet } from "../data/catalog";
 import { setPath } from "../lib/routes";
+import { recallPosition, rememberPosition } from "../lib/strip-position";
 import { clampIndex, nearestIndex } from "../lib/strip-math";
 import { Frame } from "./Frame";
 import { StripFooter } from "./StripFooter";
@@ -17,25 +18,6 @@ function frameOffsets(scroller: HTMLElement): number[] {
 
 function maxScroll(scroller: HTMLElement): number {
   return scroller.scrollWidth - scroller.clientWidth;
-}
-
-const storageKey = (slug: string) => `dh:strip:${slug}`;
-
-function savedPosition(slug: string): number | null {
-  try {
-    const value = Number(window.sessionStorage.getItem(storageKey(slug)) ?? Number.NaN);
-    return Number.isFinite(value) && value > 0 ? value : null;
-  } catch {
-    return null;
-  }
-}
-
-function savePosition(slug: string, position: number): void {
-  try {
-    window.sessionStorage.setItem(storageKey(slug), String(Math.round(position)));
-  } catch {
-    // Storage is unavailable; the strip will start at the beginning next time.
-  }
 }
 
 export function Strip({ set, next }: Props) {
@@ -58,7 +40,7 @@ export function Strip({ set, next }: Props) {
     };
     const onScroll = () => {
       setIndex(nearestIndex(frameOffsets(element), element.scrollLeft, maxScroll(element)));
-      savePosition(slug, element.scrollLeft);
+      rememberPosition(slug, element.scrollLeft);
     };
 
     element.addEventListener("wheel", onWheel, { passive: false });
@@ -76,7 +58,7 @@ export function Strip({ set, next }: Props) {
       document.getElementById(target)?.scrollIntoView({ behavior: "auto", inline: "start", block: "start" });
       return;
     }
-    const saved = savedPosition(slug);
+    const saved = recallPosition(slug);
     if (element && saved !== null) element.scrollLeft = saved;
   }, [slug]);
 
